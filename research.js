@@ -42,12 +42,36 @@ window.DeepBriefResearch = (() => {
       return [{title, url, excerpt:plainText(work.abstract), provider:'Crossref', meta:meta || 'Publication metadata', attribution:''}];
     });
   }
+  function europepmc(data) {
+    if (!Array.isArray(data.resultList?.result)) throw Error('Europe PMC returned an unexpected response. Try again.');
+    return data.resultList.result.slice(0, 6).flatMap(work => {
+      const title = plainText(work.title, 500);
+      const id = typeof work.id === 'string' && /^[a-zA-Z0-9._-]+$/.test(work.id) ? work.id : '';
+      const source = typeof work.source === 'string' && /^[a-zA-Z0-9]+$/.test(work.source) ? work.source : '';
+      if (!title || !id || !source) return [];
+      const meta = [plainText(work.authorString, 160), plainText(String(work.pubYear || ''), 10), plainText(work.journalTitle, 120)].filter(Boolean).join(' · ');
+      return [{title, url:`https://europepmc.org/article/${source}/${id}`, excerpt:plainText(work.abstractText), provider:'Europe PMC', meta:meta || 'Biomedical publication', attribution:''}];
+    });
+  }
+  function openlibrary(data) {
+    if (!Array.isArray(data.docs)) throw Error('Open Library returned an unexpected response. Try again.');
+    return data.docs.slice(0, 6).flatMap(book => {
+      const title = plainText(book.title, 500);
+      if (!title || typeof book.key !== 'string' || !/^\/works\/OL[0-9]+W$/.test(book.key)) return [];
+      const authors = Array.isArray(book.author_name) ? book.author_name.slice(0, 3).map(a => plainText(a, 80)).filter(Boolean).join(', ') : '';
+      const year = typeof book.first_publish_year === 'number' ? String(book.first_publish_year) : '';
+      const meta = [authors, year].filter(Boolean).join(' · ');
+      return [{title, url:'https://openlibrary.org' + book.key, excerpt:'', provider:'Open Library', meta:meta || 'Book record', attribution:''}];
+    });
+  }
   function endpoint(provider, query) {
     if (provider === 'wikipedia') {
       const params = new URLSearchParams({action:'query', generator:'search', gsrsearch:query, gsrnamespace:'0', gsrlimit:'6',
         prop:'extracts|info', exintro:'1', explaintext:'1', exchars:'900', exlimit:'6', inprop:'url', origin:'*', format:'json', formatversion:'2'});
       return 'https://en.wikipedia.org/w/api.php?' + params;
     }
+    if (provider === 'europepmc') return 'https://www.ebi.ac.uk/europepmc/webservices/rest/search?' + new URLSearchParams({query, format:'json', pageSize:'6', resultType:'core'});
+    if (provider === 'openlibrary') return 'https://openlibrary.org/search.json?' + new URLSearchParams({q:query, limit:'6', fields:'key,title,author_name,first_publish_year'});
     const params = new URLSearchParams({query, rows:'6', select:'title,DOI,URL,abstract,publisher,published,author,type'});
     return 'https://api.crossref.org/works?' + params;
   }
@@ -76,7 +100,7 @@ window.DeepBriefResearch = (() => {
     }
     function links() {
       const query = $('#research-query').value.trim();
-      for (const [selector, base] of [['#research-web','https://duckduckgo.com/?q='],['#research-scholar','https://scholar.google.com/scholar?q=']]) {
+      for (const [selector, base] of [['#research-web','https://duckduckgo.com/?q=']]) {
         const link = $(selector);
         if (query) { link.href = base + encodeURIComponent(query); link.removeAttribute('aria-disabled'); }
         else { link.removeAttribute('href'); link.setAttribute('aria-disabled','true'); }
@@ -109,7 +133,7 @@ window.DeepBriefResearch = (() => {
       cancelRequest(); resetResults();
       const number = requestNumber;
       const provider = $('#research-provider').value;
-      const providerName = provider === 'wikipedia' ? 'Wikipedia' : 'Crossref';
+      const providerName = {wikipedia:'Wikipedia', crossref:'Crossref', europepmc:'Europe PMC', openlibrary:'Open Library'}[provider];
       const request = new AbortController(); controller = request;
       let timedOut = false;
       const timer = setTimeout(() => { timedOut = true; request.abort(); }, 12000);
@@ -121,7 +145,7 @@ window.DeepBriefResearch = (() => {
         if (!response.ok) throw Error(response.status === 429 ? `${providerName} is busy. Please wait a minute before searching again.` : `${providerName} is unavailable (HTTP ${response.status}). Try again or use the web links.`);
         const data = await response.json();
         if (number !== requestNumber || !dialog.open) return;
-        results = provider === 'wikipedia' ? wikipedia(data) : crossref(data);
+        results = ({wikipedia, crossref, europepmc, openlibrary})[provider](data);
         // Avoid showing the same canonical source multiple times in one response.
         results = results.filter((r,i,all) => all.findIndex(x => x.url === r.url) === i);
         renderResults();

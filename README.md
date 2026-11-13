@@ -32,12 +32,12 @@ The Monroe Institute sample appears on the first visit only. It separates first-
 
 1. Tap **Find sources** on a brief card or in an open brief.
 2. Adjust the topic, then tap **Search**. The title is prefilled, but nothing is sent until you submit.
-3. Choose **Wikipedia** for background or **Crossref** for publication metadata and available abstract excerpts.
+3. Choose **Wikipedia** for background, **Crossref** for publication metadata, **Europe PMC** for biomedical articles and abstracts, or **Open Library** for book records.
 4. Preview the results, select the ones you want, choose **Supporting evidence + sources**, **Append to summary + sources**, or **Sources only**, then tap **Add selected**. Findings are saved immediately to that specific brief.
 
 Existing notes are preserved. Every imported excerpt is labeled **Unreviewed excerpt**, includes a numbered citation, provider, and retrieval date. Wikipedia excerpts also carry contributor/license attribution. Source numbers reuse existing URLs where possible, and repeated imports of the same excerpt to the same destination do not add duplicates. Results without an excerpt add a source link only; no summary is invented. Your key claims are never automatically filled from search results.
 
-**Search the web** (DuckDuckGo) and **Google Scholar** open your current search in a separate tab. For any result you find there, return to **Capture a finding from another website**, paste its title and URL, and add a passage or your own note. This saves to the same selected brief. DeepBrief does not scrape arbitrary websites or bypass paywalls. It does not generate an AI synthesis or perform a full-web search inside the panel.
+**Search the web** (DuckDuckGo) opens your current search in a separate tab. For any result you find there, return to **Capture a finding from another website**, paste its title and URL, and add a passage or your own note. This saves to the same selected brief. DeepBrief does not scrape arbitrary websites or bypass paywalls. It does not generate an AI synthesis or perform a full-web search inside the panel.
 
 Public API searches require internet access and are subject to provider availability, rate limits, and browser CORS policies. Failed searches show a message and leave the brief unchanged. You can retry, switch providers, or capture a finding manually. Requests time out after 12 seconds, and closing the dialog cancels an in-flight search. No server configuration is needed for GitHub Pages.
 
@@ -45,7 +45,7 @@ Provider references: [MediaWiki anonymous cross-origin requests](https://www.med
 
 ## Local storage and privacy
 
-The app makes no background search requests. When you submit an external search, only the text in the topic field is sent to the chosen provider (Wikipedia or Crossref), together with normal connection information such as your IP address. Search requests omit cookies and the referring page URL. Your saved summary, claims, evidence, and notebook are not sent. External web/Scholar links send the topic to those services only when selected. Source links open externally only when selected. There is no cross-device sync. Browser data clearing, private browsing, changing origins, or uninstalling a browser can remove access to research. Export JSON backups regularly, particularly before switching devices. JSON files can contain your private research; store them appropriately.
+The app makes no background search requests. When you submit an external search, only the text in the topic field is sent to the chosen provider (Wikipedia, Crossref, Europe PMC, or Open Library), together with normal connection information such as your IP address. Search requests omit cookies and the referring page URL. Your saved summary, claims, evidence, and notebook are not sent. The web search link sends the topic to DuckDuckGo only when selected. Source links open externally only when selected. There is no cross-device sync. Browser data clearing, private browsing, changing origins, or uninstalling a browser can remove access to research. Export JSON backups regularly, particularly before switching devices. JSON files can contain your private research; store them appropriately.
 
 Saves report storage failures rather than claiming success. If stored data cannot be read, saving is disabled to preserve that data. Other tabs of the same origin receive saved updates; avoid editing the same brief simultaneously in multiple tabs because the last saved version wins.
 
@@ -63,7 +63,7 @@ The suite uses an installed `/usr/bin/chromium` when available, otherwise Playwr
 
 Tests cover creating, editing, deleting, reopening, full-text search, filters, pinning, Markdown contents, JSON backup restoration, invalid JSON, unsafe URLs, import conflicts, plain-text HTML handling, keyboard dialog dismissal, empty-notebook persistence, storage failures, and horizontal overflow at widths from 320 to 1440 pixels. The research suite additionally covers correct-card imports, citation numbering, duplicates, excerpts and source-only records, omitted cookies, explicit query submission, manual capture, save failures, exported provenance, unsafe result URLs/markup, empty results, provider errors, rate limits, unreadable JSON, offline requests, timeouts, cancellation, and dialog layouts. Screenshots are written to the ignored `test-results/` directory.
 
-Search tests use controlled Wikipedia/Crossref API responses, so the suite needs no external network. Live provider access could not be verified in the managed environment because outbound access to those domains is blocked; real iOS Safari was not tested.
+Search tests use controlled provider API responses, so the suite needs no external network. Live provider access could not be verified in the managed environment because outbound access to those domains is blocked; real iOS Safari was not tested.
 
 ## Files
 
