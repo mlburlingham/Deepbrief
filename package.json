@@ -1,0 +1,13 @@
+{
+  "name": "deepbrief",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A private, browser-local research notebook",
+  "scripts": {
+    "dev": "node server.cjs",
+    "test": "node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
