@@ -102,6 +102,7 @@ window.DeepBriefResearch = (() => {
       const query = $('#research-query').value.trim();
       for (const [selector, base] of [['#research-web','https://duckduckgo.com/?q=']]) {
         const link = $(selector);
+        if (!link) continue;
         if (query) { link.href = base + encodeURIComponent(query); link.removeAttribute('aria-disabled'); }
         else { link.removeAttribute('href'); link.setAttribute('aria-disabled','true'); }
       }

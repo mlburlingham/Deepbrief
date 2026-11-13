@@ -15,7 +15,10 @@ const {chromium} = require('playwright');
     page.on('pageerror', error => errors.push(error.message));
     const appUrl = process.env.APP_URL || 'http://127.0.0.1:3000/';
     if (!process.env.APP_URL) await context.route('http://127.0.0.1:3000/**', async route => {
-      const file = new URL(route.request().url()).pathname.slice(1) || 'index.html';
+      const asset = new URL(route.request().url());
+      const file = asset.pathname.slice(1) || 'index.html';
+      // Simulate a stale, incompatible script at the previous unversioned URL.
+      if (file === 'research.js' && !asset.search) return route.fulfill({contentType:'text/javascript',body:'throw Error("Stale research script loaded");'});
       if (!['index.html','app.js','research.js','styles.css','icon.svg'].includes(file)) return route.fulfill({status:404});
       await route.fulfill({path:path.resolve(__dirname,'..',file)});
     });
