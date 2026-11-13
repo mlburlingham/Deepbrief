@@ -32,7 +32,7 @@ const {chromium} = require('playwright');
       {title:['Unsafe URL'],URL:'javascript:alert(1)'},
       {title:['Duplicate'],DOI:'10.1234/metadata'}
     ]}};
-    for (const host of ['en.wikipedia.org','api.crossref.org']) {
+    for (const host of ['en.wikipedia.org','api.crossref.org','www.ebi.ac.uk','openlibrary.org']) {
       await context.route(`https://${host}/**`, async route => {
         requests.push({url:route.request().url(),headers:await route.request().allHeaders()});
         const headers = {'access-control-allow-origin':'*'};
@@ -43,7 +43,8 @@ const {chromium} = require('playwright');
           await new Promise(resolve => setTimeout(resolve, 250));
           return route.fulfill({headers,json:wiki}).catch(()=>{});
         }
-        const body = mode === 'empty' ? {batchcomplete:true} : mode === 'api-error' ? {error:{info:'bad search'}} : host === 'en.wikipedia.org' ? wiki : papers;
+        const providerFixture = host === 'www.ebi.ac.uk' ? {resultList:{result:[{id:'12345',source:'MED',title:'A biomedical finding',abstractText:'<p>Evidence from a study.</p>',authorString:'Smith J',pubYear:'2024'}]}} : host === 'openlibrary.org' ? {docs:[{key:'/works/OL123W',title:'A research book',author_name:['Jane Writer'],first_publish_year:2020},{key:'//evil.example',title:'Unsafe'}]} : host === 'en.wikipedia.org' ? wiki : papers;
+        const body = mode === 'empty' ? {batchcomplete:true} : mode === 'api-error' ? {error:{info:'bad search'}} : providerFixture;
         await route.fulfill({headers,json:body});
       });
     }
@@ -184,6 +185,23 @@ const {chromium} = require('playwright');
       assert((await dialog.locator('#research-status').textContent()).includes(expected),failure);
       assert(await dialog.getByRole('button',{name:'Add selected',exact:true}).isDisabled());
     }
+    // New providers use the same preview and citation import flow.
+    mode = 'wikipedia';
+    await dialog.locator('#research-provider').selectOption('europepmc');
+    await search('biomedical topic');
+    assert.equal(await dialog.locator('.research-result').count(),1);
+    assert((await dialog.locator('.result-excerpt').textContent()).includes('Evidence from a study.'));
+    await choose(); await add();
+    assert((await savedTarget()).evidence.some(item => item.includes('Unreviewed excerpt — Europe PMC')));
+    assert((await savedTarget()).sources.some(item => item.url === 'https://europepmc.org/article/MED/12345'));
+    await dialog.locator('#research-provider').selectOption('openlibrary');
+    await search('research books');
+    assert.equal(await dialog.locator('.research-result').count(),1);
+    assert((await dialog.locator('.result-meta').textContent()).includes('Jane Writer'));
+    await choose(); await add();
+    assert((await savedTarget()).sources.some(item => item.url === 'https://openlibrary.org/works/OL123W'));
+    assert.equal(await page.locator('#research-scholar').count(),0);
+    await dialog.locator('#research-provider').selectOption('wikipedia');
     // Timeouts reset the search control, and closing invalidates late responses.
     mode = 'slow';
     await page.evaluate(()=>{
