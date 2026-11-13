@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 const option = (name, fallback) => args.includes(name) ? args[args.indexOf(name) + 1] : fallback;
 const port = Number(option('--port', process.env.PORT || 3000));
 const host = option('--host', '0.0.0.0');
-const files = {'/':'index.html','/index.html':'index.html','/styles.css':'styles.css','/app.js':'app.js','/icon.svg':'icon.svg'};
+const files = {'/':'index.html','/index.html':'index.html','/styles.css':'styles.css','/app.js':'app.js','/research.js':'research.js','/icon.svg':'icon.svg'};
 const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
 http.createServer((req,res) => {
  const file = files[new URL(req.url,'http://localhost').pathname];

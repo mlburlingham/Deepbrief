@@ -5,7 +5,7 @@
   "description": "A private, browser-local research notebook",
   "scripts": {
     "dev": "node server.cjs",
-    "test": "node tests/browser.cjs"
+    "test": "node tests/browser.cjs && node tests/research.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"
