@@ -8,3 +8,77 @@
 .brand-icon>span,.orbit-center>span{font-size:0;width:12px;height:12px;top:7px;right:5px;border-top:1.5px solid #d6e7b6;border-right:1.5px solid #d6e7b6}.brand-icon>span::after,.orbit-center>span::after{content:"";position:absolute;width:16px;height:1.5px;background:currentColor;right:-2px;top:5px;transform:rotate(-45deg)}.orbit-center>span{width:24px;height:24px;top:15px;right:8px;border-color:#8eaa6d}.orbit-center>span::after{width:30px;top:10px;right:-4px}
 @media(max-width:760px){.page-heading p{font-size:13px}.intro-banner p{font-size:12px;max-width:245px}.intro-banner{min-height:254px}.intro-banner .text-link{font-size:12px}.card-question{font-size:13px}.card-meta{font-size:11px;gap:10px;flex-wrap:wrap}.card-footer,.badge{font-size:11px}.topic{font-size:10px}.new-card strong{font-size:14px}.new-card>span:last-child{font-size:12px}.stats div div>span{font-size:10px}}
 .text-link>span,.new-card>span:last-child>span{display:inline-block;font-size:0;width:8px;height:8px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;position:relative;margin-left:5px}.text-link>span::before,.new-card>span:last-child>span::before{content:"";position:absolute;width:11px;height:1px;right:-2px;top:3px;background:currentColor;transform:rotate(45deg)}.new-card>span:last-child>span{transform:rotate(-90deg)}
+/* Topic research: explicit searches, previewable findings, and local capture. */
+button:disabled{cursor:default;opacity:.5}
+.card-research{display:flex;align-items:center;gap:8px;width:calc(100% + 48px);margin:0 -24px;min-height:44px;padding:10px 24px;border-top:1px solid #edf0e6;border-radius:0 0 10px 10px;color:#5d7750;font-size:11px;text-align:left;background:#fbfcf8}
+.card-research:hover{background:#edf3e5}
+.card-research svg{width:15px;height:15px}
+.card-research>span{margin-left:auto;font-size:18px;font-weight:300}
+.detail-actions{flex-wrap:wrap}
+#research-dialog{width:min(760px,calc(100% - 32px))}
+#research-brief-name{font-size:12px;color:#7b876f;margin-top:8px;overflow-wrap:anywhere}
+.research-body{padding:22px 28px 26px}
+.research-help{font-size:12px;line-height:1.8;color:#748168;margin-bottom:20px}
+.research-search-form{display:grid;gap:8px}
+.research-label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:600}
+.research-label small{font-size:11px;font-weight:400;color:#7a866f}
+.research-body input:not([type=checkbox]),.research-body textarea,.research-body select{width:100%;min-width:0;padding:11px 12px;border:1px solid #dce2d2;border-radius:6px;background:white;color:var(--ink);font-size:14px;font-weight:400}
+.research-body textarea{resize:vertical;line-height:1.7}
+.research-search-controls{display:flex;align-items:flex-end;gap:12px;margin-top:8px}
+.research-search-controls label{flex:1;min-width:0}
+.research-search-controls button{min-height:46px}
+.research-web-links{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;border-bottom:1px solid var(--line);padding:17px 0;margin-bottom:20px;font-size:11px}
+.research-web-links span{color:#89957d}
+.research-web-links a{color:#5c794a;text-underline-offset:4px;padding:5px 0}
+.research-web-links a:not([href]){color:#a3aa9d;pointer-events:none}
+.research-target-row{display:flex}
+.research-target-row label{width:100%}
+.research-status{font-size:12px;color:#6d7c60;line-height:1.8;padding:18px 0;overflow-wrap:anywhere}
+#research-results{display:grid;gap:14px}
+.research-result{background:white;border:1px solid var(--line);border-radius:10px;padding:18px 21px;min-width:0}
+.research-result:has(input:checked){border-color:#88a471;box-shadow:0 0 0 1px #88a471}
+.result-choice{display:flex;gap:9px;align-items:center;min-height:32px;font-size:10px;letter-spacing:.5px;color:#789164;cursor:pointer}
+.result-choice input{accent-color:#49683b;width:20px;height:20px;flex-shrink:0;margin:0}
+.research-result h3{font:23px/1.3 Georgia,serif;overflow-wrap:anywhere;margin:8px 0}
+.research-result h3 a{text-decoration:none}
+.research-result h3 a:hover{text-decoration:underline;text-underline-offset:4px}
+.result-meta{font-size:10px;color:#929b86;overflow-wrap:anywhere;margin-bottom:11px}
+.result-excerpt{font-size:13px;line-height:1.85;color:#647359;overflow-wrap:anywhere}
+.result-attribution{font-size:10px;line-height:1.7;color:#8c9780;margin-top:10px}
+.result-saved{background:#f0f4e9}
+.manual-capture{border-top:1px solid var(--line);margin-top:24px;padding-top:17px}
+.manual-capture summary{cursor:pointer;font-size:12px;font-weight:600;min-height:44px;padding:9px 0;color:#637e51}
+.manual-capture .research-help{margin:4px 0 18px}
+#capture-form{display:grid;gap:15px}
+#capture-form button{justify-self:start}
+#capture-status{font-size:12px;line-height:1.8;color:#637e51}
+.research-footer>span{display:block;font-size:11px}
+@media(max-width:1100px){.card-research{width:calc(100% + 40px);margin:0 -20px;padding-left:20px;padding-right:20px}}
+@media(max-width:760px){
+ .card-research{width:calc(100% + 46px);margin:0 -23px;padding:12px 23px;font-size:12px;min-height:48px}
+ .research-body{padding:19px 20px 22px}
+ .research-help{font-size:12px}
+ .research-body input:not([type=checkbox]),.research-body textarea,.research-body select{font-size:16px}
+ .research-search-controls{gap:9px}
+ .research-search-controls .button{padding:10px 13px}
+ .research-search-controls select{font-size:13px}
+ .research-web-links{gap:8px 17px;font-size:12px}
+ .research-web-links>span{width:100%}
+ .research-web-links a{min-height:36px}
+ .research-result{padding:17px}
+ .research-result h3{font-size:23px}
+ .result-choice{min-height:44px;font-size:11px}
+ .result-meta,.result-attribution{font-size:11px}
+ .result-excerpt{font-size:14px}
+ .research-label,.manual-capture summary{font-size:13px}
+ .research-footer{flex-wrap:wrap}
+ .research-footer>span{display:block;width:100%;font-size:11px}
+ .detail-actions{width:100%;justify-content:flex-start;gap:7px}
+ .detail-actions .button{padding:10px;font-size:11px}
+ .detail-actions .button svg{width:16px;height:16px}
+ .detail-actions>.icon-button{min-width:36px}
+}
+#research-dialog[open]{display:flex;flex-direction:column;overflow:hidden;height:min(860px,94dvh)}
+#research-dialog>.modal-header{flex-shrink:0}
+#research-dialog>.research-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+#research-dialog>.research-footer{position:static;flex-shrink:0}

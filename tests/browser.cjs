@@ -9,7 +9,7 @@ const {chromium} = require('playwright');
  page.on('pageerror',e=>errors.push(e.message));
  // In-process HTTP fixtures exercise the static app without a listening server.
  const url=process.env.APP_URL||'http://127.0.0.1:3000/';
- async function fixture(ctx){if(process.env.APP_URL)return;await ctx.route('http://127.0.0.1:3000/**',async route=>{const pathname=new URL(route.request().url()).pathname;const filename=pathname==='/'?'index.html':pathname.slice(1);if(!['index.html','styles.css','app.js','icon.svg'].includes(filename))return route.fulfill({status:404,body:'Not found'});await route.fulfill({path:path.resolve(__dirname,'..',filename)});});}
+ async function fixture(ctx){if(process.env.APP_URL)return;await ctx.route('http://127.0.0.1:3000/**',async route=>{const pathname=new URL(route.request().url()).pathname;const filename=pathname==='/'?'index.html':pathname.slice(1);if(!['index.html','styles.css','app.js','research.js','icon.svg'].includes(filename))return route.fulfill({status:404,body:'Not found'});await route.fulfill({path:path.resolve(__dirname,'..',filename)});});}
  await fixture(context);
  await page.goto(url);
  await fs.mkdir(path.resolve(__dirname,'../test-results'),{recursive:true});

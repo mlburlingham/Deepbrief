@@ -64,6 +64,43 @@ function save(next) {
  try { localStorage.setItem(KEY,JSON.stringify({version:1,briefs:next})); briefs=next; return true; }
  catch { toast('Could not save. Browser storage is unavailable or full. Export a backup.'); return false; }
 }
+// Research imports always read the latest saved brief and append atomically.
+// The dialog keeps its own brief ID, so a dashboard search cannot target another card.
+const research = window.DeepBriefResearch.create({getBrief:id => briefs.find(b => b.id === id), addFindings});
+function canonicalSource(url) {
+ const parsed = new URL(url); parsed.hash = '';
+ if (parsed.hostname === 'doi.org') parsed.pathname = parsed.pathname.toLowerCase();
+ return parsed.href.replace(/\/$/, '');
+}
+function addFindings(id, results, target) {
+ const b = briefs.find(item => item.id === id);
+ if (!b) return {ok:false, message:'This brief is no longer available. Close research and choose another brief.'};
+ if (!['evidence','summary','sources'].includes(target)) return {ok:false, message:'Choose a destination for these findings.'};
+ const next = {...b, sources:b.sources.map(source => ({...source})), evidence:[...b.evidence]};
+ const retrieved = new Date().toISOString().slice(0,10);
+ let sourcesAdded = 0, notesAdded = 0;
+ for (const result of results) {
+  if (!result || !result.title || !safeUrl(result.url)) return {ok:false, message:'A finding has an invalid source URL. Nothing was added.'};
+  let index = next.sources.findIndex(source => source.url && canonicalSource(source.url) === canonicalSource(result.url));
+  if (index === -1) {
+   index = next.sources.length;
+   next.sources.push({title:`${result.title} — ${result.provider} (retrieved ${retrieved})`, url:result.url});
+   sourcesAdded++;
+  }
+  if (target === 'sources' || !result.excerpt) continue;
+  const marker = `${result.provider === 'Web capture' ? 'Saved web note' : 'Unreviewed excerpt'} — ${result.provider} — ${result.title}: ${result.excerpt} [${index + 1}]`;
+  const note = `${marker} (Retrieved ${retrieved}${result.attribution ? '; ' + result.attribution : ''}.)`;
+  if (target === 'evidence' && !next.evidence.some(text => text.includes(marker))) {next.evidence.push(note); notesAdded++;}
+  if (target === 'summary' && !next.summary.includes(marker)) {next.summary = [next.summary, note].filter(Boolean).join('\n\n'); notesAdded++;}
+ }
+ if (!sourcesAdded && !notesAdded) return {ok:true, message:'These findings are already in this brief. No duplicates added.'};
+ next.updatedAt = new Date().toISOString();
+ let valid;
+ try {valid = validateBrief(next);} catch {return {ok:false, message:'This brief is at its size limit. Shorten it before adding more findings.'};}
+ if (!save(briefs.map(item => item.id === id ? valid : item))) return {ok:false, message:'Could not save findings. Browser storage is unavailable or full. Your existing brief is unchanged.'};
+ render();
+ return {ok:true, message:`Saved to “${b.title}”: ${notesAdded} note${notesAdded === 1 ? '' : 's'}, ${sourcesAdded} new source${sourcesAdded === 1 ? '' : 's'}. Review imported excerpts before drawing conclusions.`};
+}
 const date = iso => new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
 const status = b => `<span class="badge ${b.status === 'complete'?'complete':''}">${b.status==='complete'?'Completed':'In progress'}</span>`;
 function render() {
@@ -77,13 +114,13 @@ function render() {
  items.sort((a,b)=>sort==='title'?a.title.localeCompare(b.title):Date.parse(b[sort==='created'?'createdAt':'updatedAt'])-Date.parse(a[sort==='created'?'createdAt':'updatedAt']));
  const label=view==='pinned'?'Pinned briefs':view==='draft'?'In progress':'All briefs';
  $('#briefs-heading').innerHTML=`${label} <span>${items.length}</span>`;
- $('#brief-grid').innerHTML=items.map(b=>`<article class="brief-card"><div class="card-top"><span class="topic">${escape(b.topic||'Uncategorized')}</span><button class="pin-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} ${escape(b.title)}" aria-pressed="${b.pinned}">${icon('pin')}</button></div><button class="card-title" data-open="${escape(b.id)}">${escape(b.title)}</button><p class="card-question">${escape(b.question||b.summary||'An idea waiting to be explored.')}</p><div class="card-meta"><span>${icon('link')}${b.sources.length} sources</span><span>${icon('question')}${b.questions.length} open questions</span>${b.demo?'<span>Sample brief</span>':''}</div><div class="card-footer">${status(b)}<span>Updated ${date(b.updatedAt)}</span></div></article>`).join('') + (items.length===0?`<div class="empty-state"><h3>${q?'No matching briefs':'A fresh page awaits'}</h3><p>${q?'Try another term or change your filters.':'Start with a question. See where it takes you.'}</p>${q?'<button class="button" data-reset>Clear search & filters</button>':'<button class="button primary" data-new>Create a brief</button>'}</div>`:'') + (items.length>0?`<button class="new-card" data-new><span class="plus-circle">${icon('plus')}</span><strong>A new question, a new beginning.</strong><span>Create a research brief <span aria-hidden="true">↗</span></span></button>`:'');
+ $('#brief-grid').innerHTML=items.map(b=>`<article class="brief-card"><div class="card-top"><span class="topic">${escape(b.topic||'Uncategorized')}</span><button class="pin-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} ${escape(b.title)}" aria-pressed="${b.pinned}">${icon('pin')}</button></div><button class="card-title" data-open="${escape(b.id)}">${escape(b.title)}</button><p class="card-question">${escape(b.question||b.summary||'An idea waiting to be explored.')}</p><div class="card-meta"><span>${icon('link')}${b.sources.length} sources</span><span>${icon('question')}${b.questions.length} open questions</span>${b.demo?'<span>Sample brief</span>':''}</div><div class="card-footer">${status(b)}<span>Updated ${date(b.updatedAt)}</span></div><button class="card-research" data-research="${escape(b.id)}" aria-label="Find sources for ${escape(b.title)}">${icon('search')}Find sources<span aria-hidden="true">+</span></button></article>`).join('') + (items.length===0?`<div class="empty-state"><h3>${q?'No matching briefs':'A fresh page awaits'}</h3><p>${q?'Try another term or change your filters.':'Start with a question. See where it takes you.'}</p>${q?'<button class="button" data-reset>Clear search & filters</button>':'<button class="button primary" data-new>Create a brief</button>'}</div>`:'') + (items.length>0?`<button class="new-card" data-new><span class="plus-circle">${icon('plus')}</span><strong>A new question, a new beginning.</strong><span>Create a research brief <span aria-hidden="true">↗</span></span></button>`:'');
  if(currentId) renderDetail();
 }
 function renderDetail() {
  const b=briefs.find(x=>x.id===currentId); if(!b) return showDashboard();
  const sections=[['Summary',b.summary],['Key claims',b.claims],['Supporting evidence',b.evidence],['Sources',b.sources],['Unanswered questions',b.questions]];
- $('#detail').innerHTML=`<div class="detail-top"><button class="back-button" data-back>${icon('arrow')}All briefs</button><div class="detail-actions"><button class="icon-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} brief" aria-pressed="${b.pinned}">${icon('pin')}</button><button class="button" data-markdown>${icon('download')}Markdown</button><button class="button primary" data-edit>${icon('edit')}Edit brief</button></div></div><header class="detail-header"><span class="topic">${escape(b.topic||'Uncategorized')}</span><h1>${escape(b.title)}</h1><p class="detail-question">${escape(b.question||'Add a research question to guide your thinking.')}</p><div class="detail-meta">${status(b)}<span>Updated ${date(b.updatedAt)}</span>${b.demo?'<span class="demo-label">DEMONSTRATION BRIEF</span>':''}</div></header><div class="detail-content">${sections.map(([title,content],i)=>`<section class="research-section"><h2><span class="section-number">0${i+1}</span>${title}</h2>${!content.length?'<p class="section-empty">Room for your next finding.</p>':typeof content==='string'?`<p>${escape(content)}</p>`:title==='Sources'?`<ol>${content.map(s=>`<li>${s.url&&safeUrl(s.url)?`<a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)} ↗</a>`:escape(s.title)}</li>`).join('')}</ol>`:`<ul>${content.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>`}</section>`).join('')}</div><button class="detail-delete" data-delete>Delete this brief</button>`;
+ $('#detail').innerHTML=`<div class="detail-top"><button class="back-button" data-back>${icon('arrow')}All briefs</button><div class="detail-actions"><button class="icon-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} brief" aria-pressed="${b.pinned}">${icon('pin')}</button><button class="button research-button" data-research="${escape(b.id)}">${icon('search')}Find sources</button><button class="button" data-markdown>${icon('download')}Markdown</button><button class="button primary" data-edit>${icon('edit')}Edit brief</button></div></div><header class="detail-header"><span class="topic">${escape(b.topic||'Uncategorized')}</span><h1>${escape(b.title)}</h1><p class="detail-question">${escape(b.question||'Add a research question to guide your thinking.')}</p><div class="detail-meta">${status(b)}<span>Updated ${date(b.updatedAt)}</span>${b.demo?'<span class="demo-label">DEMONSTRATION BRIEF</span>':''}</div></header><div class="detail-content">${sections.map(([title,content],i)=>`<section class="research-section"><h2><span class="section-number">0${i+1}</span>${title}</h2>${!content.length?'<p class="section-empty">Room for your next finding.</p>':typeof content==='string'?`<p>${escape(content)}</p>`:title==='Sources'?`<ol>${content.map(s=>`<li>${s.url&&safeUrl(s.url)?`<a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)} ↗</a>`:escape(s.title)}</li>`).join('')}</ol>`:`<ul>${content.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>`}</section>`).join('')}</div><button class="detail-delete" data-delete>Delete this brief</button>`;
 }
 function showDashboard() { currentId=null; $('#detail').hidden=true;$('#dashboard').hidden=false;document.title='DeepBrief — Your research, connected.';render(); }
 function openBrief(id) { currentId=id; $('#dashboard').hidden=true;$('#detail').hidden=false;renderDetail();document.title=`${briefs.find(b=>b.id===id).title} — DeepBrief`;window.scrollTo(0,0);$('#main').focus({preventScroll:true}); }
@@ -113,6 +150,7 @@ document.addEventListener('click',e=>{
  if(target.hasAttribute('data-view')){view=target.dataset.view;filter='all';syncNavigation();showDashboard();}
  if(target.hasAttribute('data-filter')){filter=target.dataset.filter;syncNavigation();render();}
  if(target.hasAttribute('data-new'))openEditor();
+ if(target.hasAttribute('data-research'))research.open(target.dataset.research);
  if(target.hasAttribute('data-open'))openBrief(target.dataset.open);
  if(target.hasAttribute('data-back'))showDashboard();
  if(target.hasAttribute('data-edit'))openEditor(currentId);

@@ -8,6 +8,7 @@
   <title>DeepBrief — Your research, connected.</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="research.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -44,6 +45,23 @@
   </div>
   <dialog id="editor"><form id="brief-form"><div class="modal-header"><div><span class="eyebrow">MAKE ROOM FOR AN IDEA</span><h2 id="editor-title">New research brief</h2></div><button type="button" class="icon-button" id="close-editor" aria-label="Close editor"><span data-icon="close"></span></button></div><div class="editor-fields"><label>Brief title <span class="required">*</span><input name="title" required maxlength="160" placeholder="Give your research a name"></label><div class="form-row"><label>Topic<input name="topic" maxlength="60" placeholder="e.g. Consciousness"></label><label>Status<select name="status"><option value="draft">In progress</option><option value="complete">Completed</option></select></label></div><label>Research question<textarea name="question" rows="2" placeholder="What are you trying to understand?"></textarea></label><label>Summary<textarea name="summary" rows="4" placeholder="The big picture, in your own words."></textarea></label><label>Key claims <small>One claim per line</small><textarea name="claims" rows="3" placeholder="What does the evidence suggest?"></textarea></label><label>Supporting evidence <small>One item per line; cite source numbers such as [1]</small><textarea name="evidence" rows="4" placeholder="Observations, findings, and their limitations…"></textarea></label><label>Sources <small>One source per line: Title | https://example.com</small><textarea name="sources" rows="4" placeholder="Source title | https://example.com"></textarea></label><label>Unanswered questions <small>One question per line</small><textarea name="questions" rows="3" placeholder="What still needs investigating?"></textarea></label></div><div class="modal-footer"><span>Stored only in this browser</span><button type="button" class="button" id="cancel-editor">Cancel</button><button type="submit" class="button primary">Save brief <span>↗</span></button></div></form></dialog>
   <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Delete this brief?</h2><p id="confirm-message">This cannot be undone. Export a backup if you want to keep a copy.</p><div class="confirm-actions"><button class="button" value="cancel" autofocus>Cancel</button><button class="button danger" value="confirm">Delete brief</button></div></form></dialog>
+  <dialog id="research-dialog" aria-labelledby="research-heading" aria-describedby="research-privacy">
+    <div class="modal-header"><div><span class="eyebrow">FOLLOW A NEW THREAD</span><h2 id="research-heading">Find sources</h2><p id="research-brief-name"></p></div><button type="button" class="icon-button" id="close-research" aria-label="Close research"><span data-icon="close"></span></button></div>
+    <div class="research-body">
+      <p id="research-privacy" class="research-help">Search sends only the text below to the chosen provider. Your brief stays on this device. Results are starting points to review, not verified claims.</p>
+      <form id="research-search-form" class="research-search-form">
+        <label class="research-label" for="research-query">Topic to research</label>
+        <input type="search" id="research-query" maxlength="300" required placeholder="e.g. Monroe Institute" autocomplete="off">
+        <div class="research-search-controls"><label class="research-label" for="research-provider">Look in<select id="research-provider"><option value="wikipedia">Wikipedia · background</option><option value="crossref">Crossref · research papers</option></select></label><button class="button primary" type="submit" id="run-research"><span data-icon="search"></span>Search</button></div>
+      </form>
+      <div class="research-web-links"><span>Broaden your search</span><a id="research-web" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Search the web ↗</a><a id="research-scholar" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Google Scholar ↗</a></div>
+      <div class="research-target-row"><label class="research-label" for="research-target">Add findings to<select id="research-target"><option value="evidence">Supporting evidence + sources</option><option value="summary">Append to summary + sources</option><option value="sources">Sources only</option></select></label></div>
+      <p class="research-status" id="research-status" role="status" aria-live="polite">Search for background or papers, then choose what to keep.</p>
+      <div id="research-results" aria-busy="false"></div>
+      <details class="manual-capture"><summary>Capture a finding from another website</summary><p class="research-help">Open a web result, then return here to paste a passage or write your own note. Only the content you enter is added.</p><form id="capture-form"><label class="research-label">Source title<input id="capture-title" maxlength="500" required placeholder="Article or page title"></label><label class="research-label">Source URL<input type="url" id="capture-url" required placeholder="https://example.com/article"></label><label class="research-label">Passage or note <small>Optional · up to 2,000 characters</small><textarea id="capture-note" maxlength="2000" rows="4" placeholder="What did you find? Include context and limitations."></textarea></label><button class="button" type="submit">Add finding to brief</button><p id="capture-status" role="status" aria-live="polite"></p></form></details>
+    </div>
+    <div class="modal-footer research-footer"><span id="research-selection">No results selected</span><button class="button" type="button" id="done-research">Done</button><button class="button primary" id="add-research" type="button" disabled>Add selected</button></div>
+  </dialog>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
   <div id="toast" role="status" aria-live="polite"></div>
 </body>
