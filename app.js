@@ -66,17 +66,31 @@ function save(next) {
 }
 // Research imports always read the latest saved brief and append atomically.
 // The dialog keeps its own brief ID, so a dashboard search cannot target another card.
-const research = window.DeepBriefResearch.create({getBrief:id => briefs.find(b => b.id === id), addFindings});
+const editorResearchId = newId();
+const fieldLabels = {question:'Research question',summary:'Summary',claims:'Key claims',evidence:'Supporting evidence',sources:'Sources',questions:'Unanswered questions'};
+function parseSources(text) {
+ return lines(text).map(line => {const split=line.lastIndexOf('|');return split<0?{title:line,url:''}:{title:line.slice(0,split).trim(),url:line.slice(split+1).trim()};});
+}
+function editorBrief() {
+ const f=Object.fromEntries(new FormData($('#brief-form')));
+ return {...f,id:editorResearchId,title:f.title.trim() || 'Untitled research',sources:parseSources(f.sources),claims:lines(f.claims),evidence:lines(f.evidence),questions:lines(f.questions),createdAt:now,updatedAt:now};
+}
+const research = window.DeepBriefResearch.create({getBrief:id => id === editorResearchId ? editorBrief() : briefs.find(b => b.id === id), addFindings});
+function fieldSearchButton(id, field) {
+ return `<button type="button" class="field-search" data-research="${escape(id)}" data-research-field="${field}" aria-label="Find sources for ${fieldLabels[field]}">${icon('search')}Find sources</button>`;
+}
 function canonicalSource(url) {
  const parsed = new URL(url); parsed.hash = '';
  if (parsed.hostname === 'doi.org') parsed.pathname = parsed.pathname.toLowerCase();
  return parsed.href.replace(/\/$/, '');
 }
 function addFindings(id, results, target) {
- const b = briefs.find(item => item.id === id);
+ const isDraft = id === editorResearchId;
+ const b = isDraft && $('#editor').open ? editorBrief() : briefs.find(item => item.id === id);
  if (!b) return {ok:false, message:'This brief is no longer available. Close research and choose another brief.'};
- if (!['evidence','summary','sources'].includes(target)) return {ok:false, message:'Choose a destination for these findings.'};
- const next = {...b, sources:b.sources.map(source => ({...source})), evidence:[...b.evidence]};
+ if (!Object.hasOwn(fieldLabels,target)) return {ok:false, message:'Choose a destination for these findings.'};
+ if (b.sources.some(source => !source.title || (source.url && !safeUrl(source.url)))) return {ok:false,message:'Fix the source titles and URLs in your draft before adding findings.'};
+ const next = {...b, sources:b.sources.map(source => ({...source})), evidence:[...b.evidence], claims:[...b.claims], questions:[...b.questions]};
  const retrieved = new Date().toISOString().slice(0,10);
  let sourcesAdded = 0, notesAdded = 0;
  for (const result of results) {
@@ -90,13 +104,17 @@ function addFindings(id, results, target) {
   if (target === 'sources' || !result.excerpt) continue;
   const marker = `${result.provider === 'Web capture' ? 'Saved web note' : 'Unreviewed excerpt'} — ${result.provider} — ${result.title}: ${result.excerpt} [${index + 1}]`;
   const note = `${marker} (Retrieved ${retrieved}${result.attribution ? '; ' + result.attribution : ''}.)`;
-  if (target === 'evidence' && !next.evidence.some(text => text.includes(marker))) {next.evidence.push(note); notesAdded++;}
-  if (target === 'summary' && !next.summary.includes(marker)) {next.summary = [next.summary, note].filter(Boolean).join('\n\n'); notesAdded++;}
+  if (Array.isArray(next[target]) && !next[target].some(text => text.includes(marker))) {next[target].push(note); notesAdded++;}
+  if (typeof next[target] === 'string' && !next[target].includes(marker)) {next[target] = [next[target], note].filter(Boolean).join('\n\n'); notesAdded++;}
  }
  if (!sourcesAdded && !notesAdded) return {ok:true, message:'These findings are already in this brief. No duplicates added.'};
  next.updatedAt = new Date().toISOString();
  let valid;
  try {valid = validateBrief(next);} catch {return {ok:false, message:'This brief is at its size limit. Shorten it before adding more findings.'};}
+ if (isDraft) {
+  for (const field of Object.keys(fieldLabels)) $('#brief-form').elements[field].value = field === 'sources' ? valid.sources.map(source => source.title + (source.url ? ' | ' + source.url : '')).join('\n') : Array.isArray(valid[field]) ? valid[field].join('\n') : valid[field];
+  return {ok:true,message:`Added ${notesAdded} note(s) and ${sourcesAdded} source(s) to your draft. Use Save brief to keep these findings.`};
+ }
  if (!save(briefs.map(item => item.id === id ? valid : item))) return {ok:false, message:'Could not save findings. Browser storage is unavailable or full. Your existing brief is unchanged.'};
  render();
  return {ok:true, message:`Saved to “${b.title}”: ${notesAdded} note${notesAdded === 1 ? '' : 's'}, ${sourcesAdded} new source${sourcesAdded === 1 ? '' : 's'}. Review imported excerpts before drawing conclusions.`};
@@ -119,8 +137,8 @@ function render() {
 }
 function renderDetail() {
  const b=briefs.find(x=>x.id===currentId); if(!b) return showDashboard();
- const sections=[['Summary',b.summary],['Key claims',b.claims],['Supporting evidence',b.evidence],['Sources',b.sources],['Unanswered questions',b.questions]];
- $('#detail').innerHTML=`<div class="detail-top"><button class="back-button" data-back>${icon('arrow')}All briefs</button><div class="detail-actions"><button class="icon-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} brief" aria-pressed="${b.pinned}">${icon('pin')}</button><button class="button research-button" data-research="${escape(b.id)}">${icon('search')}Find sources</button><button class="button" data-markdown>${icon('download')}Markdown</button><button class="button primary" data-edit>${icon('edit')}Edit brief</button></div></div><header class="detail-header"><span class="topic">${escape(b.topic||'Uncategorized')}</span><h1>${escape(b.title)}</h1><p class="detail-question">${escape(b.question||'Add a research question to guide your thinking.')}</p><div class="detail-meta">${status(b)}<span>Updated ${date(b.updatedAt)}</span>${b.demo?'<span class="demo-label">DEMONSTRATION BRIEF</span>':''}</div></header><div class="detail-content">${sections.map(([title,content],i)=>`<section class="research-section"><h2><span class="section-number">0${i+1}</span>${title}</h2>${!content.length?'<p class="section-empty">Room for your next finding.</p>':typeof content==='string'?`<p>${escape(content)}</p>`:title==='Sources'?`<ol>${content.map(s=>`<li>${s.url&&safeUrl(s.url)?`<a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)} ↗</a>`:escape(s.title)}</li>`).join('')}</ol>`:`<ul>${content.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>`}</section>`).join('')}</div><button class="detail-delete" data-delete>Delete this brief</button>`;
+ const sections=[['Summary',b.summary,'summary'],['Key claims',b.claims,'claims'],['Supporting evidence',b.evidence,'evidence'],['Sources',b.sources,'sources'],['Unanswered questions',b.questions,'questions']];
+ $('#detail').innerHTML=`<div class="detail-top"><button class="back-button" data-back>${icon('arrow')}All briefs</button><div class="detail-actions"><button class="icon-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} brief" aria-pressed="${b.pinned}">${icon('pin')}</button><button class="button research-button" data-research="${escape(b.id)}">${icon('search')}Find sources</button><button class="button" data-markdown>${icon('download')}Markdown</button><button class="button primary" data-edit>${icon('edit')}Edit brief</button></div></div><header class="detail-header"><span class="topic">${escape(b.topic||'Uncategorized')}</span><h1>${escape(b.title)}</h1><div class="question-search-heading"><span>Research question</span>${fieldSearchButton(b.id,'question')}</div><p class="detail-question">${escape(b.question||'Add a research question to guide your thinking.')}</p><div class="detail-meta">${status(b)}<span>Updated ${date(b.updatedAt)}</span>${b.demo?'<span class="demo-label">DEMONSTRATION BRIEF</span>':''}</div></header><div class="detail-content">${sections.map(([title,content,field],i)=>`<section class="research-section"><div class="field-heading"><h2><span class="section-number">0${i+1}</span>${title}</h2>${fieldSearchButton(b.id,field)}</div>${!content.length?'<p class="section-empty">Room for your next finding.</p>':typeof content==='string'?`<p>${escape(content)}</p>`:title==='Sources'?`<ol>${content.map(s=>`<li>${s.url&&safeUrl(s.url)?`<a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)} ↗</a>`:escape(s.title)}</li>`).join('')}</ol>`:`<ul>${content.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>`}</section>`).join('')}</div><button class="detail-delete" data-delete>Delete this brief</button>`;
 }
 function showDashboard() { currentId=null; $('#detail').hidden=true;$('#dashboard').hidden=false;document.title='DeepBrief — Your research, connected.';render(); }
 function openBrief(id) { currentId=id; $('#dashboard').hidden=true;$('#detail').hidden=false;renderDetail();document.title=`${briefs.find(b=>b.id===id).title} — DeepBrief`;window.scrollTo(0,0);$('#main').focus({preventScroll:true}); }
@@ -150,7 +168,7 @@ document.addEventListener('click',e=>{
  if(target.hasAttribute('data-view')){view=target.dataset.view;filter='all';syncNavigation();showDashboard();}
  if(target.hasAttribute('data-filter')){filter=target.dataset.filter;syncNavigation();render();}
  if(target.hasAttribute('data-new'))openEditor();
- if(target.hasAttribute('data-research'))research.open(target.dataset.research);
+ if(target.hasAttribute('data-research'))research.open(target.dataset.research, {target:target.dataset.researchField, draft:target.dataset.research === editorResearchId});
  if(target.hasAttribute('data-open'))openBrief(target.dataset.open);
  if(target.hasAttribute('data-back'))showDashboard();
  if(target.hasAttribute('data-edit'))openEditor(currentId);
@@ -184,6 +202,15 @@ $('#import-file').onchange=async event=>{
 };
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();showDashboard();$('#search').focus();}});
 window.addEventListener('storage',e=>{if(e.key!==KEY)return;try{const data=JSON.parse(e.newValue);if(data?.version!==1||!Array.isArray(data.briefs))return;briefs=data.briefs.map(validateBrief);render();toast('Notebook updated from another tab.');}catch{toast('Could not load a change from another tab.');}});
+for (const [field,label] of Object.entries(fieldLabels)) {
+ const control=$('#brief-form').elements[field];
+ control.id='brief-'+field;
+ const original=control.closest('label');
+ const wrapper=document.createElement('div'); wrapper.className='editor-field';
+ original.before(wrapper); wrapper.append(original);
+ original.htmlFor=control.id;
+ wrapper.insertAdjacentHTML('afterbegin', `<div class="editor-field-search">${fieldSearchButton(editorResearchId,field)}</div>`);
+}
 fillIcons();render();
 if(!storageAvailable){const warning=document.createElement('p');warning.className='storage-warning';warning.setAttribute('role','alert');warning.textContent='Your stored notebook could not be loaded. Existing browser data has been left untouched. Export it from your browser before saving new work, or try your regular browser with storage enabled.';$('#main').prepend(warning);}
 })();

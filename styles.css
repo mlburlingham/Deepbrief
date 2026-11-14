@@ -82,3 +82,11 @@ button:disabled{cursor:default;opacity:.5}
 #research-dialog>.modal-header{flex-shrink:0}
 #research-dialog>.research-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 #research-dialog>.research-footer{position:static;flex-shrink:0}
+.field-heading,.question-search-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.field-heading h2{margin-bottom:0;min-width:0}
+.question-search-heading{margin-top:20px;margin-bottom:10px;color:#708360;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.field-search{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:8px 11px;border:1px solid #dce4d3;border-radius:6px;background:#f5f8f0;color:#597646;font-size:11px;white-space:nowrap;flex-shrink:0}
+.field-search:hover{background:#e8efdf}
+.field-search svg{width:15px;height:15px}
+.editor-field-search{display:flex;justify-content:flex-end;margin-bottom:7px}
+@media(max-width:760px){.field-heading{align-items:flex-start;flex-wrap:wrap;gap:6px}.field-heading h2{align-self:center}.field-search{min-height:44px}.question-search-heading{flex-wrap:wrap}}

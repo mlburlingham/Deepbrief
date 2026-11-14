@@ -30,12 +30,12 @@ The Monroe Institute sample appears on the first visit only. It separates first-
 
 ## Find and capture research
 
-1. Tap **Find sources** on a brief card or in an open brief.
+1. Tap **Find sources** on a brief card, beside any research field in an open brief, or in the editor. Field buttons preselect that field and use its text as the starting query. Review the query before submitting.
 2. Adjust the topic, then tap **Search**. The title is prefilled, but nothing is sent until you submit.
 3. Choose **Wikipedia** for background, **Crossref** for publication metadata, **Europe PMC** for biomedical articles and abstracts, or **Open Library** for book records.
-4. Preview the results, select the ones you want, choose **Supporting evidence + sources**, **Append to summary + sources**, or **Sources only**, then tap **Add selected**. Findings are saved immediately to that specific brief.
+4. Preview the results, select the ones you want, choose **Supporting evidence + sources**, **Append to summary + sources**, or **Sources only**, then tap **Add selected**. Findings from an open saved brief are saved immediately to that brief. Findings from the editor are added to the current draft; use **Save brief** to keep them.
 
-Existing notes are preserved. Every imported excerpt is labeled **Unreviewed excerpt**, includes a numbered citation, provider, and retrieval date. Wikipedia excerpts also carry contributor/license attribution. Source numbers reuse existing URLs where possible, and repeated imports of the same excerpt to the same destination do not add duplicates. Results without an excerpt add a source link only; no summary is invented. Your key claims are never automatically filled from search results.
+Existing notes are preserved. Every imported excerpt is labeled **Unreviewed excerpt**, includes a numbered citation, provider, and retrieval date. Wikipedia excerpts also carry contributor/license attribution. Source numbers reuse existing URLs where possible, and repeated imports of the same excerpt to the same destination do not add duplicates. Results without an excerpt add a source link only; no summary is invented. You can explicitly add research notes to the question, claims, or unanswered questions as well. These remain labeled as imported notes for your review; the app does not generate new claims or questions.
 
 **Search the web** (DuckDuckGo) opens your current search in a separate tab. For any result you find there, return to **Capture a finding from another website**, paste its title and URL, and add a passage or your own note. This saves to the same selected brief. DeepBrief does not scrape arbitrary websites or bypass paywalls. It does not generate an AI synthesis or perform a full-web search inside the panel.
 

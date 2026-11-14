@@ -7,9 +7,9 @@
   <meta name="description" content="A quiet workspace for deeper questions. Your private, local research notebook.">
   <title>DeepBrief — Your research, connected.</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20261113-4">
-  <script src="research.js?v=20261113-4" defer></script>
-  <script src="app.js?v=20261113-4" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261114-5">
+  <script src="research.js?v=20261114-5" defer></script>
+  <script src="app.js?v=20261114-5" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to notebook</a>
@@ -55,7 +55,7 @@
         <div class="research-search-controls"><label class="research-label" for="research-provider">Look in<select id="research-provider"><option value="wikipedia">Wikipedia · background</option><option value="crossref">Crossref · research papers</option><option value="europepmc">Europe PMC · biomedical research</option><option value="openlibrary">Open Library · books</option></select></label><button class="button primary" type="submit" id="run-research"><span data-icon="search"></span>Search</button></div>
       </form>
       <div class="research-web-links"><span>Broaden your search</span><a id="research-web" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Search the web ↗</a></div>
-      <div class="research-target-row"><label class="research-label" for="research-target">Add findings to<select id="research-target"><option value="evidence">Supporting evidence + sources</option><option value="summary">Append to summary + sources</option><option value="sources">Sources only</option></select></label></div>
+      <div class="research-target-row"><label class="research-label" for="research-target">Add findings to<select id="research-target"><option value="evidence">Supporting evidence + sources</option><option value="summary">Append to summary + sources</option><option value="sources">Sources only</option><option value="question">Append to research question + sources</option><option value="claims">Key claims + sources (unreviewed notes)</option><option value="questions">Unanswered questions + sources (research notes)</option></select></label></div>
       <p class="research-status" id="research-status" role="status" aria-live="polite">Search for background or papers, then choose what to keep.</p>
       <div id="research-results" aria-busy="false"></div>
       <details class="manual-capture"><summary>Capture a finding from another website</summary><p class="research-help">Open a web result, then return here to paste a passage or write your own note. Only the content you enter is added.</p><form id="capture-form"><label class="research-label">Source title<input id="capture-title" maxlength="500" required placeholder="Article or page title"></label><label class="research-label">Source URL<input type="url" id="capture-url" required placeholder="https://example.com/article"></label><label class="research-label">Passage or note <small>Optional · up to 2,000 characters</small><textarea id="capture-note" maxlength="2000" rows="4" placeholder="What did you find? Include context and limitations."></textarea></label><button class="button" type="submit">Add finding to brief</button><p id="capture-status" role="status" aria-live="polite"></p></form></details>
