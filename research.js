@@ -203,14 +203,16 @@ window.DeepBriefResearch = (() => {
     $('#done-research').addEventListener('click', close);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     return {
-      open(id) {
+      open(id, options = {}) {
         const brief = getBrief(id);
         if (!brief) return;
         cancelRequest(); briefId = id; resetResults();
-        $('#research-brief-name').textContent = `Adding to: ${brief.title}`;
-        $('#research-query').value = (brief.title || brief.topic).slice(0,300);
+        $('#research-brief-name').textContent = `${options.draft ? 'Draft' : 'Adding to'}: ${brief.title}`;
+        const fieldValue = brief[options.target];
+        const context = typeof fieldValue === 'string' && options.target !== 'sources' ? fieldValue : Array.isArray(fieldValue) && typeof fieldValue[0] === 'string' ? fieldValue[0] : '';
+        $('#research-query').value = (options.target ? context || brief.question || brief.title || brief.topic : brief.title || brief.topic).slice(0,300);
         $('#research-provider').value = 'wikipedia';
-        $('#research-target').value = 'evidence';
+        $('#research-target').value = options.target || 'evidence';
         $('#capture-form').reset(); $('#capture-status').textContent = '';
         $('.manual-capture').open = false;
         $('#research-status').textContent = 'Search for background or papers, then choose what to keep.';

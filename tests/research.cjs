@@ -229,6 +229,42 @@ const {chromium} = require('playwright');
     }
     await page.screenshot({path:path.resolve(__dirname,'../test-results/research-desktop.png'),fullPage:true});
     await page.keyboard.press('Escape');assert(!(await dialog.isVisible()));
+    // Every saved field opens search with its own destination and appends safely.
+    for (const [field,label] of Object.entries({question:'Research question',summary:'Summary',claims:'Key claims',evidence:'Supporting evidence',sources:'Sources',questions:'Unanswered questions'})) {
+      await page.getByRole('button',{name:'Find sources for '+label,exact:true}).click();
+      assert.equal(await dialog.locator('#research-target').inputValue(),field);
+      await dialog.locator('.manual-capture summary').click();
+      await dialog.locator('#capture-title').fill('Finding for '+field);
+      await dialog.locator('#capture-url').fill('https://example.org/field/'+field);
+      await dialog.locator('#capture-note').fill('Context for '+field);
+      await dialog.getByRole('button',{name:'Add finding to brief'}).click();
+      const updated = await savedTarget();
+      if (field === 'sources') assert(updated.sources.some(s=>s.url.endsWith('/field/sources')));
+      else assert((Array.isArray(updated[field]) ? updated[field].join(' ') : updated[field]).includes('Context for '+field));
+      await dialog.getByRole('button',{name:'Done',exact:true}).click();
+    }
+    // Searching from an unsaved editor preserves its other fields and defers storage.
+    await page.getByRole('link',{name:'DeepBrief home'}).click();
+    await page.getByRole('button',{name:'New brief',exact:true}).click();
+    const editor = page.locator('#editor');
+    await editor.locator('[name=title]').fill('Draft with field research');
+    await editor.locator('[name=summary]').fill('Keep this draft summary.');
+    const countBefore = (await data()).length;
+    assert.equal(await editor.locator('[data-research-field]').count(),6);
+    await editor.getByRole('button',{name:'Find sources for Key claims',exact:true}).click();
+    assert.equal(await dialog.locator('#research-target').inputValue(),'claims');
+    await dialog.locator('.manual-capture summary').click();
+    await dialog.locator('#capture-title').fill('Draft source');
+    await dialog.locator('#capture-url').fill('https://example.org/draft-source');
+    await dialog.locator('#capture-note').fill('A draft finding.');
+    await dialog.getByRole('button',{name:'Add finding to brief'}).click();
+    assert((await dialog.locator('#capture-status').textContent()).includes('Save brief'));
+    assert.equal((await data()).length,countBefore);
+    await dialog.getByRole('button',{name:'Done',exact:true}).click();
+    assert.equal(await editor.locator('[name=summary]').inputValue(),'Keep this draft summary.');
+    assert((await editor.locator('[name=claims]').inputValue()).includes('A draft finding.'));
+    await editor.getByRole('button',{name:'Save brief'}).click();
+    assert((await data()).some(b=>b.title==='Draft with field research' && b.claims[0].includes('A draft finding.')));
     assert.deepEqual(errors,[]);
     await context.close();
     console.log('PASS: topic searches, explicit query privacy, omitted cookies, source safety, excerpts, citations, correct-card import, duplicates, manual capture, save failure, exports, empty/error/timeout states, request cancellation, and 320–1440px layouts.');
