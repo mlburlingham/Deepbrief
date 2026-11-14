@@ -81,21 +81,47 @@ window.DeepBriefResearch = (() => {
     let results = [];
     let selected = new Set();
     let saved = new Set();
+    const edits = new Map();
+    const unsavedEdits = new Set();
     let requestNumber = 0;
     let controller = null;
+    const destinations = {question:'Research question', summary:'Summary', claims:'Key claims', evidence:'Supporting evidence', sources:'Sources', questions:'Unanswered questions'};
+    const wasSaved = i => saved.has(`${$('#research-target').value}:${i}`);
+    function finding(i) {
+      const result = results[i];
+      const excerpt = edits.has(i) ? edits.get(i).replace(/\s+/g,' ').trim() : result.excerpt;
+      return {...result, excerpt, edited:excerpt !== result.excerpt};
+    }
+    function actionLabel(i) {
+      if (wasSaved(i)) return 'Added';
+      return $('#research-target').value === 'sources' || !finding(i).excerpt ? 'Add source' : 'Add text + source';
+    }
     function selection() {
       const count = selected.size;
       $('#research-selection').textContent = count ? `${count} result${count === 1 ? '' : 's'} selected` : 'No results selected';
       $('#add-research').disabled = count === 0;
+      const destination = $('#research-destination');
+      if (destination) destination.textContent = `To: ${destinations[$('#research-target').value]}`;
+      const available = results.map((_,i) => i).filter(i => !wasSaved(i));
+      const selectAll = $('#select-results');
+      if (selectAll) {
+        selectAll.textContent = available.length && available.every(i => selected.has(i)) ? 'Clear selection' : 'Select all';
+        selectAll.disabled = available.length === 0;
+      }
     }
     function renderResults() {
-      const wasSaved = i => saved.has(`${$('#research-target').value}:${i}`);
+      const toolbar = $('#results-toolbar'), heading = $('#results-heading');
+      if (toolbar) toolbar.hidden = results.length === 0;
+      if (heading) heading.textContent = `${results.length} source${results.length === 1 ? '' : 's'} found`;
       $('#research-results').innerHTML = results.map((r, i) => `<article class="research-result ${wasSaved(i) ? 'result-saved' : ''}">
         <label class="result-choice"><input type="checkbox" data-result="${i}" ${wasSaved(i) ? 'disabled' : ''} ${selected.has(i) ? 'checked' : ''} aria-label="Select ${escape(r.title)}"><span>${escape(r.provider)}${wasSaved(i) ? ' · Added to this destination' : ''}</span></label>
         <h3><a href="${escape(r.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">${escape(r.title)}</a></h3>
+        <span class="result-domain">${escape(new URL(r.url).hostname)}</span>
         <p class="result-meta">${escape(r.meta)}</p>
-        <p class="result-excerpt">${r.excerpt ? escape(r.excerpt) : 'No excerpt available. Adding this result will save its source link only.'}</p>
-        ${r.attribution ? `<p class="result-attribution">${escape(r.attribution)}</p>` : ''}</article>`).join('');
+        <p class="result-excerpt">${r.excerpt ? escape(r.excerpt) : 'No excerpt available. Add the source link, or write your own note below.'}</p>
+        ${r.attribution ? `<p class="result-attribution">${escape(r.attribution)}</p>` : ''}
+        <details class="result-edit" ${edits.has(i) ? 'open' : ''}><summary>${r.excerpt ? 'Edit text before adding' : 'Write a note from this source'}</summary><label class="research-label">Text to keep<small>Shorten the excerpt or write your own note. Clear it to save only the source.</small><textarea data-excerpt="${i}" rows="4" maxlength="2000" ${wasSaved(i) ? 'disabled' : ''}>${escape(edits.get(i) ?? r.excerpt)}</textarea></label></details>
+        <button type="button" class="button result-add ${wasSaved(i) ? '' : 'primary'}" data-add-result="${i}" ${wasSaved(i) ? 'disabled' : ''}>${actionLabel(i)}</button></article>`).join('');
       selection();
     }
     function links() {
@@ -115,7 +141,7 @@ window.DeepBriefResearch = (() => {
       $('#research-results').setAttribute('aria-busy', 'false');
     }
     function resetResults() {
-      results = []; selected.clear(); saved.clear(); renderResults();
+      results = []; selected.clear(); saved.clear(); edits.clear(); unsavedEdits.clear(); renderResults();
     }
     function revealStatus() {
       const body = $('.research-body');
@@ -123,17 +149,23 @@ window.DeepBriefResearch = (() => {
     }
     function close() {
       // Preserve a manually drafted finding until it is saved or discarded.
-      if ([...$('#capture-form').elements].some(el => el.value?.trim()) && !window.confirm('Discard this unsaved finding?')) return;
+      if ((unsavedEdits.size || [...$('#capture-form').elements].some(el => el.value?.trim())) && !window.confirm('Discard this unsaved finding?')) return;
       cancelRequest(); dialog.close(); briefId = null;
+    }
+    function openCapture() {
+      $('.manual-capture').open = true;
+      $('#capture-url').focus();
     }
     async function search(event) {
       event.preventDefault();
       const query = $('#research-query').value.trim();
       if (!query) { $('#research-query').focus(); return; }
+      if (unsavedEdits.size && !window.confirm('Discard your edited result text and start a new search?')) return;
       $('#research-query').blur(); // Dismiss the phone keyboard before showing results.
       cancelRequest(); resetResults();
       const number = requestNumber;
       const provider = $('#research-provider').value;
+      $('#research-provider').dataset.searched = provider;
       const providerName = {wikipedia:'Wikipedia', crossref:'Crossref', europepmc:'Europe PMC', openlibrary:'Open Library'}[provider];
       const request = new AbortController(); controller = request;
       let timedOut = false;
@@ -170,9 +202,14 @@ window.DeepBriefResearch = (() => {
       }
     }
     $('#research-search-form').addEventListener('submit', search);
+    $('#open-capture')?.addEventListener('click', openCapture);
     $('#research-query').addEventListener('input', links);
     $('#research-target').addEventListener('change', () => { selected.clear(); renderResults(); });
     $('#research-provider').addEventListener('change', () => {
+      if (unsavedEdits.size && !window.confirm('Discard your edited result text and switch providers?')) {
+        $('#research-provider').value = $('#research-provider').dataset.searched || 'wikipedia';
+        return;
+      }
       cancelRequest(); resetResults();
       $('#research-status').textContent = 'Press Search to look in this provider.';
     });
@@ -182,19 +219,36 @@ window.DeepBriefResearch = (() => {
       if (event.target.checked) selected.add(index); else selected.delete(index);
       selection();
     });
-    $('#add-research').addEventListener('click', () => {
-      const indices = [...selected];
-      if (!indices.length) return;
-      const outcome = addFindings(briefId, indices.map(i => results[i]), $('#research-target').value);
-      if (!outcome.ok) { $('#research-status').textContent = outcome.message; return; }
-      indices.forEach(i => saved.add(`${$('#research-target').value}:${i}`)); selected.clear(); renderResults();
-      $('#research-status').textContent = outcome.message;
+    $('#research-results').addEventListener('input', event => {
+      if (!event.target.matches('[data-excerpt]')) return;
+      const i = Number(event.target.dataset.excerpt);
+      edits.set(i, event.target.value);
+      if (finding(i).edited) unsavedEdits.add(i); else unsavedEdits.delete(i);
+      $(`[data-add-result="${i}"]`).textContent = actionLabel(i);
     });
+    $('#select-results')?.addEventListener('click', () => {
+      const available = results.map((_,i) => i).filter(i => !wasSaved(i));
+      if (available.every(i => selected.has(i))) selected.clear(); else available.forEach(i => selected.add(i));
+      renderResults();
+    });
+    function addResults(indices) {
+      if (!indices.length) return;
+      const outcome = addFindings(briefId, indices.map(finding), $('#research-target').value);
+      if (!outcome.ok) { $('#research-status').textContent = outcome.message; return; }
+      indices.forEach(i => { saved.add(`${$('#research-target').value}:${i}`); selected.delete(i); unsavedEdits.delete(i); });
+      renderResults();
+      $('#research-status').textContent = outcome.message;
+    }
+    $('#research-results').addEventListener('click', event => {
+      const button = event.target.closest('[data-add-result]');
+      if (button) addResults([Number(button.dataset.addResult)]);
+    });
+    $('#add-research').addEventListener('click', () => addResults([...selected]));
     $('#capture-form').addEventListener('submit', event => {
       event.preventDefault();
       const url = $('#capture-url').value.trim();
-      const title = $('#capture-title').value.trim();
-      if (!title || !safeUrl(url)) { $('#capture-status').textContent = 'Enter a source title and a valid http or https URL.'; return; }
+      if (!safeUrl(url)) { $('#capture-status').textContent = 'Enter a valid http or https URL.'; return; }
+      const title = $('#capture-title').value.trim() || new URL(url).hostname.replace(/^www\./,'');
       const outcome = addFindings(briefId, [{title, url, excerpt:$('#capture-note').value.replace(/\s+/g,' ').trim(), provider:'Web capture', attribution:''}], $('#research-target').value);
       $('#capture-status').textContent = outcome.message;
       if (outcome.ok) $('#capture-form').reset();
@@ -212,12 +266,16 @@ window.DeepBriefResearch = (() => {
         const context = typeof fieldValue === 'string' && options.target !== 'sources' ? fieldValue : Array.isArray(fieldValue) && typeof fieldValue[0] === 'string' ? fieldValue[0] : '';
         $('#research-query').value = (options.target ? context || brief.question || brief.title || brief.topic : brief.title || brief.topic).slice(0,300);
         $('#research-provider').value = 'wikipedia';
+        $('#research-provider').dataset.searched = 'wikipedia';
         $('#research-target').value = options.target || 'evidence';
+        const saveHint = $('#research-save-hint');
+        if (saveHint) saveHint.textContent = options.draft ? 'Draft · use Save brief to keep findings' : 'Saved on this device';
         $('#capture-form').reset(); $('#capture-status').textContent = '';
         $('.manual-capture').open = false;
         $('#research-status').textContent = 'Search for background or papers, then choose what to keep.';
         links(); dialog.showModal(); dialog.scrollTop = 0; $('.research-body').scrollTop = 0;
-        $('#research-query').focus({preventScroll:true});
+        selection();
+        if (options.capture) openCapture(); else $('#research-query').focus({preventScroll:true});
       }
     };
   }
