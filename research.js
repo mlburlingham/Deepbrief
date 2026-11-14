@@ -75,207 +75,187 @@ window.DeepBriefResearch = (() => {
     const params = new URLSearchParams({query, rows:'6', select:'title,DOI,URL,abstract,publisher,published,author,type'});
     return 'https://api.crossref.org/works?' + params;
   }
+  const providers = {
+    wikipedia: {name:'Wikipedia', parse:wikipedia},
+    crossref: {name:'Crossref', parse:crossref},
+    europepmc: {name:'Europe PMC', parse:europepmc},
+    openlibrary: {name:'Open Library', parse:openlibrary}
+  };
+
   function create({getBrief, addFindings}) {
     const dialog = $('#research-dialog');
-    let briefId = null;
-    let results = [];
-    let selected = new Set();
-    let saved = new Set();
-    const edits = new Map();
-    const unsavedEdits = new Set();
-    let requestNumber = 0;
-    let controller = null;
-    const destinations = {question:'Research question', summary:'Summary', claims:'Key claims', evidence:'Supporting evidence', sources:'Sources', questions:'Unanswered questions'};
-    const wasSaved = i => saved.has(`${$('#research-target').value}:${i}`);
+    let briefId = null, results = [], requestNumber = 0, controller = null, isDraft = false;
+    let mode = 'search';
+    const saved = new Set(), edits = new Map(), unsavedEdits = new Set();
+    const target = () => $('#research-target').value;
+    const wasSaved = i => saved.has(`${target()}:${i}`);
+    const feedback = message => { $('#research-feedback').textContent = message; };
+
     function finding(i) {
       const result = results[i];
       const excerpt = edits.has(i) ? edits.get(i).replace(/\s+/g,' ').trim() : result.excerpt;
       return {...result, excerpt, edited:excerpt !== result.excerpt};
     }
-    function actionLabel(i) {
-      if (wasSaved(i)) return 'Added';
-      return $('#research-target').value === 'sources' || !finding(i).excerpt ? 'Add source' : 'Add text + source';
-    }
-    function selection() {
-      const count = selected.size;
-      $('#research-selection').textContent = count ? `${count} result${count === 1 ? '' : 's'} selected` : 'No results selected';
-      $('#add-research').disabled = count === 0;
-      const destination = $('#research-destination');
-      if (destination) destination.textContent = `To: ${destinations[$('#research-target').value]}`;
-      const available = results.map((_,i) => i).filter(i => !wasSaved(i));
-      const selectAll = $('#select-results');
-      if (selectAll) {
-        selectAll.textContent = available.length && available.every(i => selected.has(i)) ? 'Clear selection' : 'Select all';
-        selectAll.disabled = available.length === 0;
-      }
-    }
     function renderResults() {
-      const toolbar = $('#results-toolbar'), heading = $('#results-heading');
-      if (toolbar) toolbar.hidden = results.length === 0;
-      if (heading) heading.textContent = `${results.length} source${results.length === 1 ? '' : 's'} found`;
-      $('#research-results').innerHTML = results.map((r, i) => `<article class="research-result ${wasSaved(i) ? 'result-saved' : ''}">
-        <label class="result-choice"><input type="checkbox" data-result="${i}" ${wasSaved(i) ? 'disabled' : ''} ${selected.has(i) ? 'checked' : ''} aria-label="Select ${escape(r.title)}"><span>${escape(r.provider)}${wasSaved(i) ? ' · Added to this destination' : ''}</span></label>
+      $('#research-results').innerHTML = results.map((r,i) => `<article class="research-result ${wasSaved(i) ? 'result-saved' : ''}">
+        <div class="result-source"><span>${escape(r.provider)}</span><span>${escape(new URL(r.url).hostname)}</span></div>
         <h3><a href="${escape(r.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">${escape(r.title)}</a></h3>
-        <span class="result-domain">${escape(new URL(r.url).hostname)}</span>
         <p class="result-meta">${escape(r.meta)}</p>
-        <p class="result-excerpt">${r.excerpt ? escape(r.excerpt) : 'No excerpt available. Add the source link, or write your own note below.'}</p>
-        ${r.attribution ? `<p class="result-attribution">${escape(r.attribution)}</p>` : ''}
-        <details class="result-edit" ${edits.has(i) ? 'open' : ''}><summary>${r.excerpt ? 'Edit text before adding' : 'Write a note from this source'}</summary><label class="research-label">Text to keep<small>Shorten the excerpt or write your own note. Clear it to save only the source.</small><textarea data-excerpt="${i}" rows="4" maxlength="2000" ${wasSaved(i) ? 'disabled' : ''}>${escape(edits.get(i) ?? r.excerpt)}</textarea></label></details>
-        <button type="button" class="button result-add ${wasSaved(i) ? '' : 'primary'}" data-add-result="${i}" ${wasSaved(i) ? 'disabled' : ''}>${actionLabel(i)}</button></article>`).join('');
-      selection();
+        <p class="result-excerpt">${r.excerpt ? escape(r.excerpt) : 'Source link only · write a note below if you like.'}</p>
+        <div class="result-actions">
+          <details class="result-edit" ${edits.has(i) && !wasSaved(i) ? 'open' : ''}><summary>Edit text</summary><div class="result-editor"><label class="research-label">Text to keep<small>Shorten the excerpt or write a note. Clear it to keep only the link.</small><textarea data-excerpt="${i}" rows="5" maxlength="2000" ${wasSaved(i) ? 'disabled' : ''}>${escape(edits.get(i) ?? r.excerpt)}</textarea></label>${r.attribution ? `<p class="result-attribution">${escape(r.attribution)}</p>` : ''}</div></details>
+          <button type="button" class="button ${wasSaved(i) ? 'added-button' : 'primary'} result-add" data-add-result="${i}" ${wasSaved(i) ? 'disabled' : ''}>${wasSaved(i) ? 'Added' : 'Add to brief'}</button>
+        </div>
+      </article>`).join('');
     }
-    function links() {
-      const query = $('#research-query').value.trim();
-      for (const [selector, base] of [['#research-web','https://duckduckgo.com/?q=']]) {
-        const link = $(selector);
-        if (!link) continue;
-        if (query) { link.href = base + encodeURIComponent(query); link.removeAttribute('aria-disabled'); }
-        else { link.removeAttribute('href'); link.setAttribute('aria-disabled','true'); }
-      }
+    function resetResults() {
+      results = []; saved.clear(); edits.clear(); unsavedEdits.clear(); renderResults();
     }
     function cancelRequest() {
       requestNumber++;
-      controller?.abort();
-      controller = null;
+      controller?.abort(); controller = null;
       $('#run-research').disabled = false;
-      $('#research-results').setAttribute('aria-busy', 'false');
+      $('#run-research').textContent = 'Search';
+      $('#research-results').setAttribute('aria-busy','false');
     }
-    function resetResults() {
-      results = []; selected.clear(); saved.clear(); edits.clear(); unsavedEdits.clear(); renderResults();
+    function close() {
+      const manualDraft = [...$('#capture-form').elements].some(el => el.value?.trim());
+      if ((unsavedEdits.size || manualDraft) && !window.confirm('Discard your unsaved text?')) return;
+      cancelRequest(); dialog.close(); briefId = null;
+    }
+    function showMode(next, focus = true) {
+      if (controller && next !== mode) {
+        cancelRequest();
+        $('#research-status').textContent = 'Search when you’re ready.';
+      }
+      mode = next;
+      $('#search-panel').hidden = mode !== 'search';
+      $('#paste-panel').hidden = mode !== 'paste';
+      $('#mode-search').setAttribute('aria-pressed',String(mode === 'search'));
+      $('#mode-paste').setAttribute('aria-pressed',String(mode === 'paste'));
+      feedback('');
+      $('.research-body').scrollTop = 0;
+      if (focus) $(mode === 'search' ? '#research-query' : '#capture-url').focus({preventScroll:true});
     }
     function revealStatus() {
       const body = $('.research-body');
-      body.scrollTop += $('#research-status').getBoundingClientRect().top - body.getBoundingClientRect().top - 12;
-    }
-    function close() {
-      // Preserve a manually drafted finding until it is saved or discarded.
-      if ((unsavedEdits.size || [...$('#capture-form').elements].some(el => el.value?.trim())) && !window.confirm('Discard this unsaved finding?')) return;
-      cancelRequest(); dialog.close(); briefId = null;
-    }
-    function openCapture() {
-      $('.manual-capture').open = true;
-      $('#capture-url').focus();
+      body.scrollTop += $('#research-status').getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
     }
     async function search(event) {
       event.preventDefault();
       const query = $('#research-query').value.trim();
       if (!query) { $('#research-query').focus(); return; }
-      if (unsavedEdits.size && !window.confirm('Discard your edited result text and start a new search?')) return;
-      $('#research-query').blur(); // Dismiss the phone keyboard before showing results.
-      cancelRequest(); resetResults();
+      if (unsavedEdits.size && !window.confirm('Discard your edited text and search again?')) return;
+      $('#research-query').blur();
+      cancelRequest(); resetResults(); feedback('');
       const number = requestNumber;
       const provider = $('#research-provider').value;
+      $('.search-options').open = false;
       $('#research-provider').dataset.searched = provider;
-      const providerName = {wikipedia:'Wikipedia', crossref:'Crossref', europepmc:'Europe PMC', openlibrary:'Open Library'}[provider];
+      const keys = provider === 'all' ? Object.keys(providers) : [provider];
       const request = new AbortController(); controller = request;
       let timedOut = false;
-      const timer = setTimeout(() => { timedOut = true; request.abort(); }, 12000);
+      const timer = setTimeout(() => { timedOut = true; request.abort(); },12000);
       $('#run-research').disabled = true;
-      $('#research-results').setAttribute('aria-busy', 'true');
-      $('#research-status').textContent = `Searching ${providerName} for “${query}”…`;
+      $('#run-research').textContent = 'Searching…';
+      $('#research-results').setAttribute('aria-busy','true');
+      $('#research-status').textContent = provider === 'all' ? 'Searching all sources…' : `Searching ${providers[provider].name}…`;
       try {
-        const response = await fetch(endpoint(provider, query), {signal:request.signal, credentials:'omit', referrerPolicy:'no-referrer'});
-        if (!response.ok) throw Error(response.status === 429 ? `${providerName} is busy. Please wait a minute before searching again.` : `${providerName} is unavailable (HTTP ${response.status}). Try again or use the web links.`);
-        const data = await response.json();
+        // A failed provider never discards successful results from other sources.
+        const responses = await Promise.allSettled(keys.map(async key => {
+          const response = await fetch(endpoint(key,query), {signal:request.signal, credentials:'omit', referrerPolicy:'no-referrer'});
+          if (!response.ok) throw Error(response.status === 429 ? `${providers[key].name} is busy. Try again in a minute.` : `${providers[key].name} is unavailable (HTTP ${response.status}).`);
+          return providers[key].parse(await response.json());
+        }));
         if (number !== requestNumber || !dialog.open) return;
-        results = ({wikipedia, crossref, europepmc, openlibrary})[provider](data);
-        // Avoid showing the same canonical source multiple times in one response.
-        results = results.filter((r,i,all) => all.findIndex(x => x.url === r.url) === i);
+        const lists = responses.map(r => r.status === 'fulfilled' ? r.value.slice(0,provider === 'all' ? 3 : 6) : []);
+        // Interleave sources, preserving each provider's relevance order.
+        results = [];
+        for (let i=0; i<6; i++) for (const list of lists) if (list[i] && !results.some(r => r.url === list[i].url)) results.push(list[i]);
         renderResults();
-        $('#research-status').textContent = results.length
-          ? `${results.length} results from ${providerName} for “${query}”. Select the findings you want to keep.`
-          : `No results for “${query}”. Try a broader topic, another provider, or the web links.`;
-        revealStatus();
-      } catch (error) {
-        if (number !== requestNumber || !dialog.open) return;
-        $('#research-status').textContent = timedOut ? 'Search timed out. Try again or use the web links and capture a finding below.'
-          : error instanceof TypeError ? 'Could not reach the search provider. Check your connection or use the web links and capture a finding below.'
-          : error instanceof SyntaxError ? 'The provider returned an unreadable response. Try again or use another provider.' : error.message;
+        const failures = responses.filter(r => r.status === 'rejected');
+        if (results.length) {
+          $('#research-status').textContent = `${results.length} result${results.length === 1 ? '' : 's'}${failures.length ? ' · Some sources could not be reached.' : ''}`;
+        } else if (failures.length) {
+          const reason = failures[0].reason;
+          $('#research-status').textContent = timedOut ? 'Search timed out. Try again or paste a link.' : reason instanceof TypeError ? 'Could not reach the sources. Check your connection or paste a link.' : reason instanceof SyntaxError ? 'A source returned an unreadable response. Try another source in Search options.' : reason.message;
+        } else {
+          $('#research-status').textContent = 'No results. Try a shorter topic or paste a link.';
+        }
         revealStatus();
       } finally {
         clearTimeout(timer);
         if (number === requestNumber) {
           controller = null;
           $('#run-research').disabled = false;
-          $('#research-results').setAttribute('aria-busy', 'false');
+          $('#run-research').textContent = 'Search';
+          $('#research-results').setAttribute('aria-busy','false');
         }
       }
     }
-    $('#research-search-form').addEventListener('submit', search);
-    $('#open-capture')?.addEventListener('click', openCapture);
-    $('#research-query').addEventListener('input', links);
-    $('#research-target').addEventListener('change', () => { selected.clear(); renderResults(); });
-    $('#research-provider').addEventListener('change', () => {
-      if (unsavedEdits.size && !window.confirm('Discard your edited result text and switch providers?')) {
-        $('#research-provider').value = $('#research-provider').dataset.searched || 'wikipedia';
-        return;
+    function report(outcome) {
+      if (!outcome.ok) { feedback(outcome.message); return; }
+      feedback(outcome.duplicate ? 'Already in this field.' : isDraft ? 'Added to your draft. Save brief when finished.' : 'Added to your brief.');
+    }
+    $('#research-search-form').addEventListener('submit',search);
+    $('#mode-search').addEventListener('click',() => showMode('search'));
+    $('#mode-paste').addEventListener('click',() => showMode('paste'));
+    $('#research-target').addEventListener('change',() => { renderResults(); feedback(''); });
+    $('#research-provider').addEventListener('change',() => {
+      if (unsavedEdits.size && !window.confirm('Discard your edited text and change sources?')) {
+        $('#research-provider').value = $('#research-provider').dataset.searched || 'all'; return;
       }
-      cancelRequest(); resetResults();
-      $('#research-status').textContent = 'Press Search to look in this provider.';
+      cancelRequest(); resetResults(); feedback('');
+      $('#research-status').textContent = 'Press Search to use these sources.';
     });
-    $('#research-results').addEventListener('change', event => {
-      if (!event.target.matches('[data-result]')) return;
-      const index = Number(event.target.dataset.result);
-      if (event.target.checked) selected.add(index); else selected.delete(index);
-      selection();
-    });
-    $('#research-results').addEventListener('input', event => {
+    $('#research-results').addEventListener('input',event => {
       if (!event.target.matches('[data-excerpt]')) return;
       const i = Number(event.target.dataset.excerpt);
-      edits.set(i, event.target.value);
+      edits.set(i,event.target.value);
       if (finding(i).edited) unsavedEdits.add(i); else unsavedEdits.delete(i);
-      $(`[data-add-result="${i}"]`).textContent = actionLabel(i);
     });
-    $('#select-results')?.addEventListener('click', () => {
-      const available = results.map((_,i) => i).filter(i => !wasSaved(i));
-      if (available.every(i => selected.has(i))) selected.clear(); else available.forEach(i => selected.add(i));
-      renderResults();
-    });
-    function addResults(indices) {
-      if (!indices.length) return;
-      const outcome = addFindings(briefId, indices.map(finding), $('#research-target').value);
-      if (!outcome.ok) { $('#research-status').textContent = outcome.message; return; }
-      indices.forEach(i => { saved.add(`${$('#research-target').value}:${i}`); selected.delete(i); unsavedEdits.delete(i); });
-      renderResults();
-      $('#research-status').textContent = outcome.message;
-    }
-    $('#research-results').addEventListener('click', event => {
+    $('#research-results').addEventListener('click',event => {
       const button = event.target.closest('[data-add-result]');
-      if (button) addResults([Number(button.dataset.addResult)]);
+      if (!button || button.disabled) return;
+      const i = Number(button.dataset.addResult);
+      const outcome = addFindings(briefId,[finding(i)],target());
+      report(outcome);
+      if (!outcome.ok) return;
+      saved.add(`${target()}:${i}`); unsavedEdits.delete(i); renderResults();
     });
-    $('#add-research').addEventListener('click', () => addResults([...selected]));
-    $('#capture-form').addEventListener('submit', event => {
+    $('#capture-form').addEventListener('submit',event => {
       event.preventDefault();
       const url = $('#capture-url').value.trim();
-      if (!safeUrl(url)) { $('#capture-status').textContent = 'Enter a valid http or https URL.'; return; }
+      if (!safeUrl(url)) { feedback('Enter a valid http or https link.'); return; }
       const title = $('#capture-title').value.trim() || new URL(url).hostname.replace(/^www\./,'');
-      const outcome = addFindings(briefId, [{title, url, excerpt:$('#capture-note').value.replace(/\s+/g,' ').trim(), provider:'Web capture', attribution:''}], $('#research-target').value);
-      $('#capture-status').textContent = outcome.message;
+      const outcome = addFindings(briefId,[{title,url,excerpt:$('#capture-note').value.replace(/\s+/g,' ').trim(),provider:'Web capture',attribution:''}],target());
+      report(outcome);
       if (outcome.ok) $('#capture-form').reset();
     });
-    $('#close-research').addEventListener('click', close);
-    $('#done-research').addEventListener('click', close);
-    dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+    $('#close-research').addEventListener('click',close);
+    $('#done-research').addEventListener('click',close);
+    dialog.addEventListener('cancel',event => { event.preventDefault(); close(); });
     return {
-      open(id, options = {}) {
+      open(id,options = {}) {
         const brief = getBrief(id);
         if (!brief) return;
-        cancelRequest(); briefId = id; resetResults();
-        $('#research-brief-name').textContent = `${options.draft ? 'Draft' : 'Adding to'}: ${brief.title}`;
-        const fieldValue = brief[options.target];
-        const context = typeof fieldValue === 'string' && options.target !== 'sources' ? fieldValue : Array.isArray(fieldValue) && typeof fieldValue[0] === 'string' ? fieldValue[0] : '';
-        $('#research-query').value = (options.target ? context || brief.question || brief.title || brief.topic : brief.title || brief.topic).slice(0,300);
-        $('#research-provider').value = 'wikipedia';
-        $('#research-provider').dataset.searched = 'wikipedia';
+        cancelRequest(); briefId = id; isDraft = !!options.draft;
         $('#research-target').value = options.target || 'evidence';
-        const saveHint = $('#research-save-hint');
-        if (saveHint) saveHint.textContent = options.draft ? 'Draft · use Save brief to keep findings' : 'Saved on this device';
-        $('#capture-form').reset(); $('#capture-status').textContent = '';
-        $('.manual-capture').open = false;
-        $('#research-status').textContent = 'Search for background or papers, then choose what to keep.';
-        links(); dialog.showModal(); dialog.scrollTop = 0; $('.research-body').scrollTop = 0;
-        selection();
-        if (options.capture) openCapture(); else $('#research-query').focus({preventScroll:true});
+        resetResults();
+        $('#research-brief-name').textContent = brief.title;
+        const fieldValue = brief[options.target];
+        const context = typeof fieldValue === 'string' ? fieldValue : Array.isArray(fieldValue) && typeof fieldValue[0] === 'string' ? fieldValue[0] : '';
+        const query = options.target && context.length <= 140 && !/Unreviewed|Saved web note/.test(context) ? context : '';
+        $('#research-query').value = (query || brief.title || brief.topic).slice(0,300);
+        $('#research-provider').value = 'all';
+        $('#research-provider').dataset.searched = 'all';
+        $('.search-options').open = false;
+        $('#capture-form').reset();
+        $('#research-status').textContent = 'Search a topic, then add a result to your brief.';
+        $('#research-save-hint').textContent = isDraft ? 'Draft · use Save brief when finished' : 'Saved on this device';
+        showMode(options.capture ? 'paste' : 'search',false);
+        dialog.showModal();
+        $(mode === 'search' ? '#research-query' : '#capture-url').focus({preventScroll:true});
       }
     };
   }

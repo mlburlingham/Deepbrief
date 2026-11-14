@@ -7,9 +7,9 @@
   <meta name="description" content="A quiet workspace for deeper questions. Your private, local research notebook.">
   <title>DeepBrief — Your research, connected.</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20261114-6">
-  <script src="research.js?v=20261114-6" defer></script>
-  <script src="app.js?v=20261114-6" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261114-7">
+  <script src="research.js?v=20261114-7" defer></script>
+  <script src="app.js?v=20261114-7" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to notebook</a>
@@ -19,56 +19,60 @@
     <nav aria-label="Notebook navigation">
       <button class="nav-item active" data-view="all"><span data-icon="notebook"></span>All briefs<span class="count" id="nav-count">1</span></button>
       <button class="nav-item" data-view="pinned"><span data-icon="pin"></span>Pinned briefs</button>
-      <button class="nav-item" data-view="draft"><span data-icon="edit"></span>In progress</button>
     </nav>
     <div class="sidebar-bottom">
-      <div class="workspace-label">YOUR DATA</div>
-      <button class="nav-item" id="backup"><span data-icon="download"></span>Export backup</button>
-      <button class="nav-item" id="import"><span data-icon="upload"></span>Import backup</button>
+      <details class="notebook-tools"><summary>Notebook options</summary><div class="tools-menu">
+        <button class="nav-item" id="backup"><span data-icon="download"></span>Export backup</button>
+        <button class="nav-item" id="import"><span data-icon="upload"></span>Import backup</button>
+      </div></details>
       <div class="local-note"><span class="status-dot"></span><div>Yours. On this device.<p>Research stays in your browser.<br>No account. No cloud.</p></div></div>
     </div>
   </aside>
   <div class="app-shell">
-    <header class="topbar"><span class="breadcrumb">Workspace <span>/</span> <strong>Research notebook</strong></span><span class="local-pill"><span class="status-dot"></span>Local workspace</span></header>
     <main id="main" tabindex="-1">
       <section id="dashboard">
-        <div class="page-heading"><div><div class="eyebrow">A LITTLE CURIOSITY GOES A LONG WAY</div><h1>Your research, connected<span>.</span></h1><p>A quiet place to ask better questions and build a clearer picture.</p></div><button class="button primary" id="new-brief"><span data-icon="plus"></span>New brief</button></div>
-        <section class="intro-banner" aria-label="Notebook introduction"><div><span class="eyebrow">FROM QUESTION TO CLARITY</span><h2>Follow the evidence.<br>Keep the bigger picture.</h2><p>Bring your questions, claims, and sources together.<br>Good research starts with a place to think.</p><a href="#briefs" class="text-link">Explore your notebook <span>↘</span></a></div><div class="orbit-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><span class="orbit-dot dot-one"></span><span class="orbit-dot dot-two"></span><span class="orbit-dot dot-three"></span><div class="orbit-center">d<span>↗</span></div><span class="art-label">CONNECT THE DOTS</span></div></section>
+        <div class="page-heading"><div><div class="eyebrow">RESEARCH NOTEBOOK</div><h1>Your briefs</h1><p>Keep your questions, findings, and sources together.</p></div><button class="button primary" id="new-brief"><span data-icon="plus"></span>New brief</button></div>
         <section class="stats" aria-label="Notebook statistics"><div><span class="stat-icon" data-icon="notebook"></span><div><strong id="stat-briefs">1</strong><span>Research briefs</span></div></div><div><span class="stat-icon" data-icon="link"></span><div><strong id="stat-sources">3</strong><span>Sources collected</span></div></div><div><span class="stat-icon" data-icon="question"></span><div><strong id="stat-questions">3</strong><span>Open questions</span></div></div></section>
-        <section id="briefs" class="briefs-section" aria-labelledby="briefs-heading"><div class="section-title"><h2 id="briefs-heading">All briefs <span id="result-count">1</span></h2><label class="sort-label">Sort by <select id="sort" aria-label="Sort briefs"><option value="updated">Last updated</option><option value="created">Date created</option><option value="title">Title A–Z</option></select></label></div>
-        <div class="toolbar"><label class="search-box"><span data-icon="search"></span><input id="search" type="search" placeholder="Search your research…" aria-label="Search your research"><kbd>/</kbd></label><div class="filters" aria-label="Filter briefs"><button class="filter active" data-filter="all" aria-pressed="true">All</button><button class="filter" data-filter="draft" aria-pressed="false">In progress</button><button class="filter" data-filter="complete" aria-pressed="false">Completed</button></div><button class="icon-button" id="layout-toggle" aria-label="Switch to list view" title="Switch layout"><span data-icon="list"></span></button></div>
+        <section id="briefs" class="briefs-section" aria-labelledby="briefs-heading">
+          <label class="search-box"><span data-icon="search"></span><input id="search" type="search" placeholder="Find a saved brief…" aria-label="Find a saved brief"><kbd>/</kbd></label>
+          <div class="section-title"><h2 id="briefs-heading">All briefs <span>1</span></h2><details class="notebook-filters"><summary id="filters-label">Filter &amp; sort</summary><div class="filter-options">
+            <div class="filters" aria-label="Filter briefs"><button class="filter active" data-filter="all" aria-pressed="true">All</button><button class="filter" data-filter="draft" aria-pressed="false">In progress</button><button class="filter" data-filter="complete" aria-pressed="false">Completed</button></div>
+            <label>Sort by<select id="sort" aria-label="Sort briefs"><option value="updated">Last updated</option><option value="created">Date created</option><option value="title">Title A–Z</option></select></label>
+            <button class="button" id="layout-toggle" aria-label="Switch to list view"><span data-icon="list"></span>List view</button>
+          </div></details></div>
         <div id="brief-grid" class="brief-grid"></div></section>
         <footer class="page-footer"><span><span data-icon="lock"></span>Private by design. Saved on this device.</span><span>Stay curious. Think deeply.</span></footer>
       </section>
       <article id="detail" hidden></article>
     </main>
   </div>
-  <dialog id="editor"><form id="brief-form"><div class="modal-header"><div><span class="eyebrow">MAKE ROOM FOR AN IDEA</span><h2 id="editor-title">New research brief</h2></div><button type="button" class="icon-button" id="close-editor" aria-label="Close editor"><span data-icon="close"></span></button></div><div class="editor-fields"><label>Brief title <span class="required">*</span><input name="title" required maxlength="160" placeholder="Give your research a name"></label><div class="form-row"><label>Topic<input name="topic" maxlength="60" placeholder="e.g. Consciousness"></label><label>Status<select name="status"><option value="draft">In progress</option><option value="complete">Completed</option></select></label></div><label>Research question<textarea name="question" rows="2" placeholder="What are you trying to understand?"></textarea></label><label>Summary<textarea name="summary" rows="4" placeholder="The big picture, in your own words."></textarea></label><label>Key claims <small>One claim per line</small><textarea name="claims" rows="3" placeholder="What does the evidence suggest?"></textarea></label><label>Supporting evidence <small>One item per line; cite source numbers such as [1]</small><textarea name="evidence" rows="4" placeholder="Observations, findings, and their limitations…"></textarea></label><label>Sources <small>One source per line: Title | https://example.com</small><textarea name="sources" rows="4" placeholder="Source title | https://example.com"></textarea></label><label>Unanswered questions <small>One question per line</small><textarea name="questions" rows="3" placeholder="What still needs investigating?"></textarea></label></div><div class="modal-footer"><span>Stored only in this browser</span><button type="button" class="button" id="cancel-editor">Cancel</button><button type="submit" class="button primary">Save brief <span>↗</span></button></div></form></dialog>
+  <dialog id="editor"><form id="brief-form"><div class="modal-header"><div><span class="eyebrow">BRIEF DETAILS</span><h2 id="editor-title">New research brief</h2></div><button type="button" class="icon-button" id="close-editor" aria-label="Close editor"><span data-icon="close"></span></button></div><div class="editor-fields"><label><span>Brief title <span class="required">*</span></span><input name="title" required maxlength="160" placeholder="Give your research a name"></label><div class="form-row"><label>Topic<input name="topic" maxlength="60" placeholder="e.g. Consciousness"></label><label>Status<select name="status"><option value="draft">In progress</option><option value="complete">Completed</option></select></label></div><label>Research question<textarea name="question" rows="2" placeholder="What are you trying to understand?"></textarea></label><label>Summary<textarea name="summary" rows="4" placeholder="The big picture, in your own words."></textarea></label><label>Key claims <small>One claim per line</small><textarea name="claims" rows="3" placeholder="What does the evidence suggest?"></textarea></label><label>Supporting evidence <small>One item per line; cite source numbers such as [1]</small><textarea name="evidence" rows="4" placeholder="Observations, findings, and their limitations…"></textarea></label><label>Sources <small>One source per line: Title | https://example.com</small><textarea name="sources" rows="4" placeholder="Source title | https://example.com"></textarea></label><label>Unanswered questions <small>One question per line</small><textarea name="questions" rows="3" placeholder="What still needs investigating?"></textarea></label></div><div class="modal-footer"><span>Stored only in this browser</span><button type="button" class="button" id="cancel-editor">Cancel</button><button type="submit" class="button primary">Save brief</button></div></form></dialog>
   <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Delete this brief?</h2><p id="confirm-message">This cannot be undone. Export a backup if you want to keep a copy.</p><div class="confirm-actions"><button class="button" value="cancel" autofocus>Cancel</button><button class="button danger" value="confirm">Delete brief</button></div></form></dialog>
-  <dialog id="research-dialog" aria-labelledby="research-heading" aria-describedby="research-privacy">
-    <div class="modal-header"><div><span class="eyebrow">FOLLOW A NEW THREAD</span><h2 id="research-heading">Find sources</h2><p id="research-brief-name"></p></div><button type="button" class="icon-button" id="close-research" aria-label="Close research"><span data-icon="close"></span></button></div>
-    <div class="research-body">
-      <div class="research-shortcuts"><span>Find it. Keep what matters.</span><button class="button" type="button" id="open-capture">+ Paste a source</button></div><p id="research-privacy" class="research-help">Only your search text is sent to the chosen provider. Review findings before adding them to your brief.</p>
-      <form id="research-search-form" class="research-search-form">
-        <label class="research-label" for="research-query">Topic to research</label>
-        <input type="search" id="research-query" maxlength="300" required placeholder="e.g. Monroe Institute" autocomplete="off">
-        <div class="research-search-controls"><label class="research-label" for="research-provider">Look in<select id="research-provider"><option value="wikipedia">Wikipedia · background</option><option value="crossref">Crossref · research papers</option><option value="europepmc">Europe PMC · biomedical research</option><option value="openlibrary">Open Library · books</option></select></label><button class="button primary" type="submit" id="run-research"><span data-icon="search"></span>Search</button></div>
-      </form>
-      <div class="research-web-links"><span>Broaden your search</span><a id="research-web" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Search the web ↗</a></div>
-      <div class="research-target-row"><label class="research-label" for="research-target">Add findings to<select id="research-target"><option value="evidence">Supporting evidence</option><option value="summary">Summary</option><option value="sources">Sources only</option><option value="question">Research question</option><option value="claims">Key claims</option><option value="questions">Unanswered questions</option></select></label></div>
-      <p class="research-status" id="research-status" role="status" aria-live="polite">Search for background or papers, then choose what to keep.</p>
-      <div class="results-toolbar" id="results-toolbar" hidden><span id="results-heading">Search results</span><button type="button" class="text-button" id="select-results">Select all</button></div><div id="research-results" aria-busy="false"></div>
-      <details class="manual-capture"><summary>Capture a finding from another website</summary>
-        <p class="research-help">Paste a link and the text you want to keep. Your source will be cited automatically.</p>
-        <form id="capture-form">
-          <label class="research-label">Source URL<input type="url" id="capture-url" required inputmode="url" autocapitalize="none" spellcheck="false" placeholder="Paste https://…"></label>
-          <label class="research-label">Source title <small>Optional · uses the website name if left blank</small><input id="capture-title" maxlength="500" placeholder="Article or page title"></label>
-          <label class="research-label">Passage or note <small>Optional · up to 2,000 characters</small><textarea id="capture-note" maxlength="2000" rows="5" placeholder="Paste a passage or write what you learned…"></textarea></label>
-          <button class="button primary" type="submit">Add finding to brief</button><p id="capture-status" role="status" aria-live="polite"></p>
-        </form>
-      </details>
+  <dialog id="research-dialog" aria-labelledby="research-heading">
+    <div class="modal-header"><div><h2 id="research-heading">Find sources</h2><p id="research-brief-name"></p></div><button type="button" class="icon-button" id="close-research" aria-label="Close research"><span data-icon="close"></span></button></div>
+    <div class="research-controls">
+      <div class="research-modes" role="group" aria-label="Add research"><button type="button" id="mode-search" aria-pressed="true" aria-controls="search-panel">Search sources</button><button type="button" id="mode-paste" aria-pressed="false" aria-controls="paste-panel">Paste a link</button></div>
+      <div class="research-target-row"><label for="research-target">Save to</label><select id="research-target"><option value="evidence">Supporting evidence</option><option value="summary">Summary</option><option value="sources">Sources only</option><option value="question">Research question</option><option value="claims">Key claims</option><option value="questions">Unanswered questions</option></select></div>
     </div>
-    <div class="modal-footer research-footer"><div class="research-save-info"><strong id="research-destination">To: Supporting evidence</strong><span id="research-selection">No results selected</span><small id="research-save-hint">Saved on this device</small></div><button class="button" type="button" id="done-research">Done</button><button class="button primary" id="add-research" type="button" disabled>Add selected</button></div>
+    <div class="research-body">
+      <section id="search-panel" aria-label="Search sources">
+        <form id="research-search-form">
+          <label class="sr-only" for="research-query">Search for a topic</label><div class="source-search-box"><input type="search" id="research-query" maxlength="300" required placeholder="What are you researching?" autocomplete="off"><button class="button primary" type="submit" id="run-research">Search</button></div>
+          <details class="search-options"><summary>Search options</summary><label class="research-label" for="research-provider">Sources<select id="research-provider"><option value="all">All sources</option><option value="wikipedia">Wikipedia</option><option value="crossref">Crossref · papers</option><option value="europepmc">Europe PMC · biomedical research</option><option value="openlibrary">Open Library · books</option></select></label><p class="research-help">Only the topic above is shared with the selected sources.</p></details>
+        </form>
+        <p class="research-status" id="research-status" role="status" aria-live="polite">Search a topic, then add a result to your brief.</p>
+        <div id="research-results" aria-busy="false"></div>
+      </section>
+      <section id="paste-panel" hidden aria-label="Paste a link">
+        <form id="capture-form">
+          <label class="research-label">Link<input type="url" id="capture-url" required inputmode="url" autocapitalize="none" spellcheck="false" placeholder="https://example.com/article"></label>
+          <label class="research-label">Text to keep <small>Optional · paste a passage or write a note</small><textarea id="capture-note" maxlength="2000" rows="5" placeholder="What did you find?"></textarea></label>
+          <label class="research-label">Title <small>Optional</small><input id="capture-title" maxlength="500" placeholder="Uses the website name if left blank"></label>
+          <button class="button primary" type="submit">Add to brief</button><p class="research-help">The link is saved as a source and cited with your text.</p>
+        </form>
+      </section>
+    </div>
+    <div class="modal-footer research-footer"><div><p id="research-feedback" role="status" aria-live="polite"></p><small id="research-save-hint">Saved on this device</small></div><button class="button" type="button" id="done-research">Done</button></div>
   </dialog>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
   <div id="toast" role="status" aria-live="polite"></div>
