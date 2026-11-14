@@ -77,7 +77,7 @@ function editorBrief() {
 }
 const research = window.DeepBriefResearch.create({getBrief:id => id === editorResearchId ? editorBrief() : briefs.find(b => b.id === id), addFindings});
 function fieldSearchButton(id, field) {
- return `<button type="button" class="field-search" data-research="${escape(id)}" data-research-field="${field}" aria-label="Find sources for ${fieldLabels[field]}">${icon('search')}Find sources</button>`;
+ return `<button type="button" class="field-search" data-research="${escape(id)}" data-research-field="${field}" aria-label="Find sources for ${fieldLabels[field]}">${icon('search')}Search</button>`;
 }
 function canonicalSource(url) {
  const parsed = new URL(url); parsed.hash = '';
@@ -107,7 +107,7 @@ function addFindings(id, results, target) {
   if (Array.isArray(next[target]) && !next[target].some(text => text.includes(marker))) {next[target].push(note); notesAdded++;}
   if (typeof next[target] === 'string' && !next[target].includes(marker)) {next[target] = [next[target], note].filter(Boolean).join('\n\n'); notesAdded++;}
  }
- if (!sourcesAdded && !notesAdded) return {ok:true, message:'These findings are already in this brief. No duplicates added.'};
+ if (!sourcesAdded && !notesAdded) return {ok:true, duplicate:true, message:'These findings are already in this brief. No duplicates added.'};
  next.updatedAt = new Date().toISOString();
  let valid;
  try {valid = validateBrief(next);} catch {return {ok:false, message:'This brief is at its size limit. Shorten it before adding more findings.'};}
@@ -126,19 +126,20 @@ function render() {
  $('#stat-briefs').textContent=briefs.length;
  $('#stat-sources').textContent=briefs.reduce((n,b)=>n+b.sources.length,0);
  $('#stat-questions').textContent=briefs.reduce((n,b)=>n+b.questions.length,0);
+ $('#filters-label').textContent = 'Filter & sort' + (filter === 'all' ? '' : filter === 'draft' ? ' · In progress' : ' · Completed');
  const q=$('#search').value.trim().toLowerCase();
  let items=briefs.filter(b=>(view!=='pinned'||b.pinned)&&(view!=='draft'||b.status==='draft')&&(filter==='all'||b.status===filter)&&(!q||[b.title,b.topic,b.question,b.summary,...b.claims,...b.evidence,...b.questions,...b.sources.flatMap(s=>[s.title,s.url])].join(' ').toLowerCase().includes(q)));
  const sort=$('#sort').value;
  items.sort((a,b)=>sort==='title'?a.title.localeCompare(b.title):Date.parse(b[sort==='created'?'createdAt':'updatedAt'])-Date.parse(a[sort==='created'?'createdAt':'updatedAt']));
  const label=view==='pinned'?'Pinned briefs':view==='draft'?'In progress':'All briefs';
  $('#briefs-heading').innerHTML=`${label} <span>${items.length}</span>`;
- $('#brief-grid').innerHTML=items.map(b=>`<article class="brief-card"><div class="card-top"><span class="topic">${escape(b.topic||'Uncategorized')}</span><button class="pin-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} ${escape(b.title)}" aria-pressed="${b.pinned}">${icon('pin')}</button></div><button class="card-title" data-open="${escape(b.id)}">${escape(b.title)}</button><p class="card-question">${escape(b.question||b.summary||'An idea waiting to be explored.')}</p><div class="card-meta"><span>${icon('link')}${b.sources.length} sources</span><span>${icon('question')}${b.questions.length} open questions</span>${b.demo?'<span>Sample brief</span>':''}</div><div class="card-footer">${status(b)}<span>Updated ${date(b.updatedAt)}</span></div><div class="card-capture-actions"><button class="card-research" data-research="${escape(b.id)}" aria-label="Find sources for ${escape(b.title)}">${icon('search')}Find sources</button><button class="card-paste" data-research="${escape(b.id)}" data-capture aria-label="Paste a source for ${escape(b.title)}">${icon('plus')}Paste source</button></div></article>`).join('') + (items.length===0?`<div class="empty-state"><h3>${q?'No matching briefs':'A fresh page awaits'}</h3><p>${q?'Try another term or change your filters.':'Start with a question. See where it takes you.'}</p>${q?'<button class="button" data-reset>Clear search & filters</button>':'<button class="button primary" data-new>Create a brief</button>'}</div>`:'') + (items.length>0?`<button class="new-card" data-new><span class="plus-circle">${icon('plus')}</span><strong>A new question, a new beginning.</strong><span>Create a research brief <span aria-hidden="true">↗</span></span></button>`:'');
+ $('#brief-grid').innerHTML=items.map(b=>`<article class="brief-card"><div class="card-top"><span class="topic">${escape(b.topic||'Uncategorized')}</span><button class="pin-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} ${escape(b.title)}" aria-pressed="${b.pinned}">${icon('pin')}</button></div><button class="card-title" data-open="${escape(b.id)}">${escape(b.title)}</button><p class="card-question">${escape(b.question||b.summary||'An idea waiting to be explored.')}</p><div class="card-meta"><span>${icon('link')}${b.sources.length} sources</span><span>${icon('question')}${b.questions.length} open questions</span>${b.demo?'<span>Sample brief</span>':''}</div><div class="card-footer">${status(b)}<span>Updated ${date(b.updatedAt)}</span></div><div class="card-capture-actions"><button class="card-research" data-research="${escape(b.id)}" aria-label="Find sources for ${escape(b.title)}">${icon('search')}Find sources</button></div></article>`).join('') + (items.length===0?`<div class="empty-state"><h3>${q?'No matching briefs':'A fresh page awaits'}</h3><p>${q?'Try another term or change your filters.':'Start with a question. See where it takes you.'}</p>${q?'<button class="button" data-reset>Clear search & filters</button>':'<button class="button primary" data-new>Create a brief</button>'}</div>`:'');
  if(currentId) renderDetail();
 }
 function renderDetail() {
  const b=briefs.find(x=>x.id===currentId); if(!b) return showDashboard();
  const sections=[['Summary',b.summary,'summary'],['Key claims',b.claims,'claims'],['Supporting evidence',b.evidence,'evidence'],['Sources',b.sources,'sources'],['Unanswered questions',b.questions,'questions']];
- $('#detail').innerHTML=`<div class="detail-top"><button class="back-button" data-back>${icon('arrow')}All briefs</button><div class="detail-actions"><button class="icon-button ${b.pinned?'pinned':''}" data-pin="${escape(b.id)}" aria-label="${b.pinned?'Unpin':'Pin'} brief" aria-pressed="${b.pinned}">${icon('pin')}</button><button class="button research-button" data-research="${escape(b.id)}">${icon('search')}Find sources</button><button class="button" data-markdown>${icon('download')}Markdown</button><button class="button primary" data-edit>${icon('edit')}Edit brief</button></div></div><header class="detail-header"><span class="topic">${escape(b.topic||'Uncategorized')}</span><h1>${escape(b.title)}</h1><div class="question-search-heading"><span>Research question</span>${fieldSearchButton(b.id,'question')}</div><p class="detail-question">${escape(b.question||'Add a research question to guide your thinking.')}</p><div class="detail-meta">${status(b)}<span>Updated ${date(b.updatedAt)}</span>${b.demo?'<span class="demo-label">DEMONSTRATION BRIEF</span>':''}</div></header><div class="detail-content">${sections.map(([title,content,field],i)=>`<section class="research-section"><div class="field-heading"><h2><span class="section-number">0${i+1}</span>${title}</h2>${fieldSearchButton(b.id,field)}</div>${!content.length?'<p class="section-empty">Room for your next finding.</p>':typeof content==='string'?`<p>${escape(content)}</p>`:title==='Sources'?`<ol>${content.map(s=>`<li>${s.url&&safeUrl(s.url)?`<a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)} ↗</a>`:escape(s.title)}</li>`).join('')}</ol>`:`<ul>${content.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>`}</section>`).join('')}</div><button class="detail-delete" data-delete>Delete this brief</button>`;
+ $('#detail').innerHTML=`<div class="detail-top"><button class="back-button" data-back>${icon('arrow')}All briefs</button><div class="detail-actions"><button class="button primary" data-edit>${icon('edit')}Edit brief</button><button class="button research-button" data-research="${escape(b.id)}">${icon('search')}Find sources</button><details class="brief-options"><summary>More</summary><div class="tools-menu"><button class="nav-item" data-markdown>${icon('download')}Markdown</button><button class="nav-item" data-pin="${escape(b.id)}">${icon('pin')}${b.pinned?'Unpin':'Pin'} brief</button><button class="nav-item delete-action" data-delete>Delete this brief</button></div></details></div></div><header class="detail-header"><span class="topic">${escape(b.topic||'Uncategorized')}</span><h1>${escape(b.title)}</h1><div class="question-search-heading"><span>Research question</span>${fieldSearchButton(b.id,'question')}</div><p class="detail-question">${escape(b.question||'Add a research question to guide your thinking.')}</p><div class="detail-meta">${status(b)}<span>Updated ${date(b.updatedAt)}</span>${b.demo?'<span class="demo-label">DEMONSTRATION BRIEF</span>':''}</div></header><div class="detail-content">${sections.map(([title,content,field],i)=>`<section class="research-section"><div class="field-heading"><h2><span class="section-number">0${i+1}</span>${title}</h2>${fieldSearchButton(b.id,field)}</div>${!content.length?'<p class="section-empty">Room for your next finding.</p>':typeof content==='string'?`<p>${escape(content)}</p>`:title==='Sources'?`<ol>${content.map(s=>`<li>${s.url&&safeUrl(s.url)?`<a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)}</a>`:escape(s.title)}</li>`).join('')}</ol>`:`<ul>${content.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>`}</section>`).join('')}</div>`;
 }
 function showDashboard() { currentId=null; $('#detail').hidden=true;$('#dashboard').hidden=false;document.title='DeepBrief — Your research, connected.';render(); }
 function openBrief(id) { currentId=id; $('#dashboard').hidden=true;$('#detail').hidden=false;renderDetail();document.title=`${briefs.find(b=>b.id===id).title} — DeepBrief`;window.scrollTo(0,0);$('#main').focus({preventScroll:true}); }
@@ -160,13 +161,13 @@ $('#brief-form').addEventListener('submit',event=>{
 });
 $('#new-brief').onclick=()=>openEditor();$('#close-editor').onclick=closeEditor;$('#cancel-editor').onclick=closeEditor;
 $('#editor').addEventListener('cancel',e=>{e.preventDefault();closeEditor();});
-$('#search').addEventListener('input',render);$('#sort').onchange=render;
+$('#search').addEventListener('input',render);$('#sort').onchange=()=>{render();$('.notebook-filters').open=false;};
 $('.brand').onclick=e=>{e.preventDefault();view='all';filter='all';$('#search').value='';syncNavigation();showDashboard();window.scrollTo(0,0);};
 function syncNavigation(){document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);b.setAttribute('aria-current',b.dataset.view===view?'page':'false');});document.querySelectorAll('[data-filter]').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});}
 document.addEventListener('click',e=>{
  const target=e.target.closest('button');if(!target)return;
  if(target.hasAttribute('data-view')){view=target.dataset.view;filter='all';syncNavigation();showDashboard();}
- if(target.hasAttribute('data-filter')){filter=target.dataset.filter;syncNavigation();render();}
+ if(target.hasAttribute('data-filter')){filter=target.dataset.filter;syncNavigation();render();$('.notebook-filters').open=false;}
  if(target.hasAttribute('data-new'))openEditor();
  if(target.hasAttribute('data-research'))research.open(target.dataset.research, {target:target.dataset.researchField, draft:target.dataset.research === editorResearchId, capture:target.hasAttribute('data-capture')});
  if(target.hasAttribute('data-open'))openBrief(target.dataset.open);
@@ -178,15 +179,15 @@ document.addEventListener('click',e=>{
  if(target.hasAttribute('data-reset')){view='all';filter='all';$('#search').value='';syncNavigation();render();}
 });
 $('#confirm-dialog').addEventListener('close',()=>{if($('#confirm-dialog').returnValue==='confirm'&&currentId){if(save(briefs.filter(b=>b.id!==currentId))){showDashboard();toast('Brief deleted.');}}});
-$('#layout-toggle').onclick=()=>{const list=$('#brief-grid').classList.toggle('list-view');$('#layout-toggle').innerHTML=icon(list?'grid':'list');$('#layout-toggle').setAttribute('aria-label',`Switch to ${list?'grid':'list'} view`);};
+$('#layout-toggle').onclick=()=>{const list=$('#brief-grid').classList.toggle('list-view');$('#layout-toggle').innerHTML=icon(list?'grid':'list')+(list?'Grid view':'List view');$('.notebook-filters').open=false;$('#layout-toggle').setAttribute('aria-label',`Switch to ${list?'grid':'list'} view`);};
 function download(content,type,filename){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function markdown(b){
  const md=s=>String(s).replace(/([\\`*_{}\[\]<>#|!])/g,'\\$1');
  return `# ${md(b.title)}\n\nTopic: ${md(b.topic||'Uncategorized')}\nStatus: ${b.status==='complete'?'Completed':'In progress'}\nUpdated: ${b.updatedAt}\n\n## Research question\n\n${md(b.question)}\n\n## Summary\n\n${md(b.summary)}\n\n## Key claims\n\n${b.claims.map(x=>'- '+md(x)).join('\n')}\n\n## Supporting evidence\n\n${b.evidence.map(x=>'- '+md(x)).join('\n')}\n\n## Sources\n\n${b.sources.map((s,i)=>`${i+1}. ${s.url?`[${md(s.title)}](<${s.url.replace(/[<>\s\\]/g,c=>encodeURIComponent(c))}>)`:md(s.title)}`).join('\n')}\n\n## Unanswered questions\n\n${b.questions.map(x=>'- '+md(x)).join('\n')}\n`;
 }
 function exportMarkdown(){const b=briefs.find(x=>x.id===currentId);download(markdown(b),'text/markdown;charset=utf-8',(b.title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'research-brief')+'.md');toast('Markdown exported.');}
-$('#backup').onclick=()=>{download(JSON.stringify({app:'DeepBrief',version:1,exportedAt:new Date().toISOString(),briefs},null,2),'application/json','deepbrief-backup-'+new Date().toISOString().slice(0,10)+'.json');toast('Backup exported. Keep it somewhere safe.');};
-$('#import').onclick=()=>$('#import-file').click();
+$('#backup').onclick=()=>{$('.notebook-tools').open=false;download(JSON.stringify({app:'DeepBrief',version:1,exportedAt:new Date().toISOString(),briefs},null,2),'application/json','deepbrief-backup-'+new Date().toISOString().slice(0,10)+'.json');toast('Backup exported. Keep it somewhere safe.');};
+$('#import').onclick=()=>{$('.notebook-tools').open=false;$('#import-file').click();};
 $('#import-file').onchange=async event=>{
  const file=event.target.files[0];if(!file)return;
  try {
@@ -200,17 +201,24 @@ $('#import-file').onchange=async event=>{
  }catch(error){toast(error instanceof SyntaxError?'This file is not valid JSON. Nothing was imported.':error.message+' Nothing was imported.');}
  finally{event.target.value='';}
 };
-document.addEventListener('keydown',e=>{if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();showDashboard();$('#search').focus();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.querySelector('dialog[open]')){const menus=[...document.querySelectorAll('.notebook-tools[open],.notebook-filters[open],.brief-options[open]')];for(const menu of menus)menu.open=false;menus.at(-1)?.querySelector('summary').focus();}if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();showDashboard();$('#search').focus();}});
 window.addEventListener('storage',e=>{if(e.key!==KEY)return;try{const data=JSON.parse(e.newValue);if(data?.version!==1||!Array.isArray(data.briefs))return;briefs=data.briefs.map(validateBrief);render();toast('Notebook updated from another tab.');}catch{toast('Could not load a change from another tab.');}});
 for (const [field,label] of Object.entries(fieldLabels)) {
- const control=$('#brief-form').elements[field];
- control.id='brief-'+field;
+ const control=$('#brief-form').elements[field]; control.id='brief-'+field;
  const original=control.closest('label');
  const wrapper=document.createElement('div'); wrapper.className='editor-field';
- original.before(wrapper); wrapper.append(original);
- original.htmlFor=control.id;
- wrapper.insertAdjacentHTML('afterbegin', `<div class="editor-field-search">${fieldSearchButton(editorResearchId,field)}</div>`);
+ original.before(wrapper);
+ const heading=document.createElement('div'); heading.className='editor-field-heading';
+ const caption=document.createElement('label'); caption.htmlFor=control.id;caption.textContent=label;
+ heading.append(caption);heading.insertAdjacentHTML('beforeend',fieldSearchButton(editorResearchId,field));
+ wrapper.append(heading);
+ const help=original.querySelector('small');
+ if(help){help.className='field-help';wrapper.append(help);}
+ wrapper.append(control);original.remove();
 }
+document.addEventListener('click',event=>{
+ for(const menu of document.querySelectorAll('.notebook-tools[open],.notebook-filters[open],.brief-options[open]')) if(!menu.contains(event.target)) menu.open=false;
+});
 fillIcons();render();
 if(!storageAvailable){const warning=document.createElement('p');warning.className='storage-warning';warning.setAttribute('role','alert');warning.textContent='Your stored notebook could not be loaded. Existing browser data has been left untouched. Export it from your browser before saving new work, or try your regular browser with storage enabled.';$('#main').prepend(warning);}
 })();
