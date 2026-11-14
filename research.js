@@ -82,14 +82,27 @@ window.DeepBriefResearch = (() => {
     openlibrary: {name:'Open Library', parse:openlibrary}
   };
 
-  function create({getBrief, addFindings}) {
+  function create({getBrief, addFindings, onView}) {
     const dialog = $('#research-dialog');
+    const destinationDialog = $('#destination-dialog');
     let briefId = null, results = [], requestNumber = 0, controller = null, isDraft = false;
-    let mode = 'search';
-    const saved = new Set(), edits = new Map(), unsavedEdits = new Set();
-    const target = () => $('#research-target').value;
-    const wasSaved = i => saved.has(`${target()}:${i}`);
-    const feedback = message => { $('#research-feedback').textContent = message; };
+    let mode = 'search', pending = null;
+    const saved = new Map(), edits = new Map(), unsavedEdits = new Set();
+    const destinations = {summary:'Summary', evidence:'Evidence', sources:'Sources', question:'Research question', claims:'Key claims', questions:'Unanswered questions'};
+    function feedback(message, field) {
+      const box = $('#research-feedback');
+      box.replaceChildren(document.createTextNode(message));
+      if (field) {
+        const view = document.createElement('button');
+        view.type = 'button'; view.className = 'feedback-view'; view.textContent = 'View';
+        view.setAttribute('aria-label', `View ${destinations[field]} in ${isDraft ? 'draft' : 'brief'}`);
+        view.addEventListener('click', () => {
+          const id = briefId, draft = isDraft;
+          if (close()) onView(id,field,draft);
+        });
+        box.append(' ',view);
+      }
+    }
 
     function finding(i) {
       const result = results[i];
@@ -97,15 +110,16 @@ window.DeepBriefResearch = (() => {
       return {...result, excerpt, edited:excerpt !== result.excerpt};
     }
     function renderResults() {
-      $('#research-results').innerHTML = results.map((r,i) => `<article class="research-result ${wasSaved(i) ? 'result-saved' : ''}">
+      $('#research-results').innerHTML = results.map((r,i) => `<article class="research-result ${saved.has(i) ? 'result-saved' : ''}">
         <div class="result-source"><span>${escape(r.provider)}</span><span>${escape(new URL(r.url).hostname)}</span></div>
         <h3><a href="${escape(r.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">${escape(r.title)}</a></h3>
         <p class="result-meta">${escape(r.meta)}</p>
-        <p class="result-excerpt">${r.excerpt ? escape(r.excerpt) : 'Source link only · write a note below if you like.'}</p>
+        ${r.excerpt.length > 180 ? `<details class="result-more"><summary><span class="preview-text">${escape(r.excerpt.slice(0,177).trimEnd())}…</span><span class="read-more-label"><span class="when-closed">Read more</span><span class="when-open">Read less</span></span></summary><p class="result-excerpt-full">${escape(r.excerpt)}</p></details>` : `<p class="result-excerpt">${r.excerpt ? escape(r.excerpt) : 'Source link only · write a note below if you like.'}</p>`}
         <div class="result-actions">
-          <details class="result-edit" ${edits.has(i) && !wasSaved(i) ? 'open' : ''}><summary>Edit text</summary><div class="result-editor"><label class="research-label">Text to keep<small>Shorten the excerpt or write a note. Clear it to keep only the link.</small><textarea data-excerpt="${i}" rows="5" maxlength="2000" ${wasSaved(i) ? 'disabled' : ''}>${escape(edits.get(i) ?? r.excerpt)}</textarea></label>${r.attribution ? `<p class="result-attribution">${escape(r.attribution)}</p>` : ''}</div></details>
-          <button type="button" class="button ${wasSaved(i) ? 'added-button' : 'primary'} result-add" data-add-result="${i}" ${wasSaved(i) ? 'disabled' : ''}>${wasSaved(i) ? 'Added' : 'Add to brief'}</button>
+          <details class="result-edit" ${unsavedEdits.has(i) ? 'open' : ''}><summary>Edit text</summary><div class="result-editor"><label class="research-label">Text to keep<small>Shorten the excerpt or write a note. Clear it to keep only the link.</small><textarea data-excerpt="${i}" rows="5" maxlength="2000">${escape(edits.get(i) ?? r.excerpt)}</textarea></label>${r.attribution ? `<p class="result-attribution">${escape(r.attribution)}</p>` : ''}</div></details>
+          <button type="button" class="button primary result-add" data-add-result="${i}" aria-label="Add ${escape(r.title)}">Add</button>
         </div>
+        ${saved.has(i) ? `<p class="result-added">Added to ${escape(destinations[saved.get(i)])}</p>` : ''}
       </article>`).join('');
     }
     function resetResults() {
@@ -120,8 +134,8 @@ window.DeepBriefResearch = (() => {
     }
     function close() {
       const manualDraft = [...$('#capture-form').elements].some(el => el.value?.trim());
-      if ((unsavedEdits.size || manualDraft) && !window.confirm('Discard your unsaved text?')) return;
-      cancelRequest(); dialog.close(); briefId = null;
+      if ((unsavedEdits.size || manualDraft) && !window.confirm('Discard your unsaved text?')) return false;
+      cancelRequest(); dialog.close(); briefId = null; return true;
     }
     function showMode(next, focus = true) {
       if (controller && next !== mode) {
@@ -193,14 +207,41 @@ window.DeepBriefResearch = (() => {
         }
       }
     }
-    function report(outcome) {
-      if (!outcome.ok) { feedback(outcome.message); return; }
-      feedback(outcome.duplicate ? 'Already in this field.' : isDraft ? 'Added to your draft. Save brief when finished.' : 'Added to your brief.');
+    function closeDestination() { pending = null; destinationDialog.close(); }
+    function chooseDestination(item) {
+      pending = item;
+      $('#destination-context').textContent = item.finding.title;
+      $('#destination-error').textContent = '';
+      destinationDialog.showModal();
+    }
+    function addTo(field) {
+      if (!pending || !Object.hasOwn(destinations,field)) return;
+      const item = pending;
+      const outcome = addFindings(briefId,[item.finding],field);
+      if (!outcome.ok) { $('#destination-error').textContent = outcome.message; return; }
+      // Metadata-only results and Sources-only imports are stored in Sources.
+      const actualField = field === 'sources' || !item.finding.excerpt ? 'sources' : field;
+      if (item.kind === 'result') {
+        saved.set(item.index,actualField);
+        if (actualField !== 'sources' || !item.finding.excerpt) unsavedEdits.delete(item.index);
+        renderResults();
+      } else $('#capture-form').reset();
+      closeDestination();
+      const message = outcome.duplicate ? `Already in ${destinations[actualField]}.` : `Added to ${destinations[actualField]}.`;
+      feedback(isDraft && !outcome.duplicate ? `${message} Save brief to keep your changes.` : message,actualField);
+      if (item.kind === 'result') requestAnimationFrame(() => {
+        if (dialog.open) $(`[data-add-result="${item.index}"]`)?.focus({preventScroll:true});
+      });
     }
     $('#research-search-form').addEventListener('submit',search);
     $('#mode-search').addEventListener('click',() => showMode('search'));
     $('#mode-paste').addEventListener('click',() => showMode('paste'));
-    $('#research-target').addEventListener('change',() => { renderResults(); feedback(''); });
+    $('.destination-options').addEventListener('click', event => {
+      const button = event.target.closest('[data-destination]');
+      if (button) addTo(button.dataset.destination);
+    });
+    $('#cancel-destination').addEventListener('click',closeDestination);
+    destinationDialog.addEventListener('cancel',event => { event.preventDefault(); closeDestination(); });
     $('#research-provider').addEventListener('change',() => {
       if (unsavedEdits.size && !window.confirm('Discard your edited text and change sources?')) {
         $('#research-provider').value = $('#research-provider').dataset.searched || 'all'; return;
@@ -218,41 +259,36 @@ window.DeepBriefResearch = (() => {
       const button = event.target.closest('[data-add-result]');
       if (!button || button.disabled) return;
       const i = Number(button.dataset.addResult);
-      const outcome = addFindings(briefId,[finding(i)],target());
-      report(outcome);
-      if (!outcome.ok) return;
-      saved.add(`${target()}:${i}`); unsavedEdits.delete(i); renderResults();
+      chooseDestination({kind:'result',index:i,finding:finding(i)});
     });
     $('#capture-form').addEventListener('submit',event => {
       event.preventDefault();
       const url = $('#capture-url').value.trim();
       if (!safeUrl(url)) { feedback('Enter a valid http or https link.'); return; }
       const title = $('#capture-title').value.trim() || new URL(url).hostname.replace(/^www\./,'');
-      const outcome = addFindings(briefId,[{title,url,excerpt:$('#capture-note').value.replace(/\s+/g,' ').trim(),provider:'Web capture',attribution:''}],target());
-      report(outcome);
-      if (outcome.ok) $('#capture-form').reset();
+      chooseDestination({kind:'capture',finding:{title,url,excerpt:$('#capture-note').value.replace(/\s+/g,' ').trim(),provider:'Web capture',attribution:''}});
     });
     $('#close-research').addEventListener('click',close);
-    $('#done-research').addEventListener('click',close);
+    $('#done-research').addEventListener('click',() => {
+      const id = briefId, draft = isDraft;
+      if (close()) onView(id,null,draft);
+    });
     dialog.addEventListener('cancel',event => { event.preventDefault(); close(); });
     return {
       open(id,options = {}) {
         const brief = getBrief(id);
         if (!brief) return;
         cancelRequest(); briefId = id; isDraft = !!options.draft;
-        $('#research-target').value = options.target || 'evidence';
         resetResults();
         $('#research-brief-name').textContent = brief.title;
-        const fieldValue = brief[options.target];
-        const context = typeof fieldValue === 'string' ? fieldValue : Array.isArray(fieldValue) && typeof fieldValue[0] === 'string' ? fieldValue[0] : '';
-        const query = options.target && context.length <= 140 && !/Unreviewed|Saved web note/.test(context) ? context : '';
-        $('#research-query').value = (query || brief.title || brief.topic).slice(0,300);
+        $('#research-query').value = (brief.title || brief.topic).slice(0,300);
         $('#research-provider').value = 'all';
         $('#research-provider').dataset.searched = 'all';
         $('.search-options').open = false;
         $('#capture-form').reset();
         $('#research-status').textContent = 'Search a topic, then add a result to your brief.';
         $('#research-save-hint').textContent = isDraft ? 'Draft · use Save brief when finished' : 'Saved on this device';
+        $('#done-research').textContent = isDraft ? 'Back to draft' : 'Back to brief';
         showMode(options.capture ? 'paste' : 'search',false);
         dialog.showModal();
         $(mode === 'search' ? '#research-query' : '#capture-url').focus({preventScroll:true});
